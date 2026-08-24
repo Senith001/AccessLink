@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1077071069798",
+    "project_id": "access-link-005",
+    "storage_bucket": "access-link-005.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1077071069798:android:12ee750c30d0022372e3a7",
+        "android_client_info": {
+          "package_name": "com.example.accesslink"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDwSC84Md48hsgisOcsyWUXOTpHa-oblnI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
