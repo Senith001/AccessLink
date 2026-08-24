@@ -2,16 +2,16 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
-import 'registration_screen.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class RegistrationScreen extends StatefulWidget {
+  const RegistrationScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<RegistrationScreen> createState() =>
+      _RegistrationScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _RegistrationScreenState extends State<RegistrationScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
@@ -19,7 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isLoading = false;
 
-  Future<void> _login() async {
+  Future<void> _register() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
@@ -33,14 +33,16 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await _authService.loginUser(
+      await _authService.registerUser(
         email,
         password,
       );
 
       if (!mounted) return;
 
-      _showMessage('Login successful!');
+      _showMessage('Registration successful!');
+
+      Navigator.pop(context);
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
 
@@ -51,20 +53,20 @@ class _LoginScreenState extends State<LoginScreen> {
           message = 'Please enter a valid email address.';
           break;
 
-        case 'user-not-found':
-          message = 'No account found with this email.';
+        case 'weak-password':
+          message = 'Password is too weak.';
           break;
 
-        case 'wrong-password':
-          message = 'Incorrect password.';
+        case 'email-already-in-use':
+          message = 'An account already exists with this email.';
           break;
 
-        case 'invalid-credential':
-          message = 'Invalid email or password.';
+        case 'operation-not-allowed':
+          message = 'Email/password registration is not enabled.';
           break;
 
         default:
-          message = 'Login failed. Please try again.';
+          message = 'Registration failed. Please try again.';
       }
 
       _showMessage(message);
@@ -100,16 +102,19 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Register'),
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 80),
+              const SizedBox(height: 40),
 
               const Text(
-                'AccessLink',
+                'Create Account',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 32,
@@ -120,7 +125,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 8),
 
               const Text(
-                'Welcome back!',
+                'Create your AccessLink account',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 16,
@@ -171,21 +176,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              const SizedBox(height: 12),
-
-              const Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  'Forgot Password?',
-                ),
-              ),
-
               const SizedBox(height: 30),
 
               SizedBox(
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: _isLoading ? null : _login,
+                  onPressed: _isLoading ? null : _register,
                   child: _isLoading
                       ? const SizedBox(
                           height: 22,
@@ -195,7 +191,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         )
                       : const Text(
-                          'Login',
+                          'Register',
                           style: TextStyle(
                             fontSize: 16,
                           ),
@@ -208,18 +204,12 @@ class _LoginScreenState extends State<LoginScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text("Don't have an account? "),
+                  const Text('Already have an account? '),
                   TextButton(
                     onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const RegistrationScreen(),
-                        ),
-                      );
+                      Navigator.pop(context);
                     },
-                    child: const Text('Register'),
+                    child: const Text('Login'),
                   ),
                 ],
               ),
