@@ -1,7 +1,100 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-class LoginScreen extends StatelessWidget {
+import '../services/auth_service.dart';
+
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  final _authService = AuthService();
+
+  bool _isLoading = false;
+
+  Future<void> _login() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      _showMessage('Please enter your email and password.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _authService.loginUser(
+        email,
+        password,
+      );
+
+      if (!mounted) return;
+
+      _showMessage('Login successful!');
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+
+      String message;
+
+      switch (e.code) {
+        case 'invalid-email':
+          message = 'Please enter a valid email address.';
+          break;
+
+        case 'user-not-found':
+          message = 'No account found with this email.';
+          break;
+
+        case 'wrong-password':
+          message = 'Incorrect password.';
+          break;
+
+        case 'invalid-credential':
+          message = 'Invalid email or password.';
+          break;
+
+        default:
+          message = 'Login failed. Please try again.';
+      }
+
+      _showMessage(message);
+    } catch (e) {
+      if (!mounted) return;
+
+      _showMessage('Something went wrong. Please try again.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +138,7 @@ class LoginScreen extends StatelessWidget {
               const SizedBox(height: 8),
 
               TextField(
+                controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
                   hintText: 'Enter your email',
@@ -66,6 +160,7 @@ class LoginScreen extends StatelessWidget {
               const SizedBox(height: 8),
 
               TextField(
+                controller: _passwordController,
                 obscureText: true,
                 decoration: InputDecoration(
                   hintText: 'Enter your password',
@@ -89,13 +184,21 @@ class LoginScreen extends StatelessWidget {
               SizedBox(
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: () {},
-                  child: const Text(
-                    'Login',
-                    style: TextStyle(
-                      fontSize: 16,
-                    ),
-                  ),
+                  onPressed: _isLoading ? null : _login,
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          'Login',
+                          style: TextStyle(
+                            fontSize: 16,
+                          ),
+                        ),
                 ),
               ),
 
