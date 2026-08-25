@@ -2,13 +2,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import 'home_screen.dart';
+import 'login_screen.dart';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
 
   @override
-  State<RegistrationScreen> createState() =>
-      _RegistrationScreenState();
+  State<RegistrationScreen> createState() => _RegistrationScreenState();
 }
 
 class _RegistrationScreenState extends State<RegistrationScreen> {
@@ -33,16 +34,16 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     });
 
     try {
-      await _authService.registerUser(
-        email,
-        password,
-      );
+      await _authService.registerUser(email, password);
 
       if (!mounted) return;
 
       _showMessage('Registration successful!');
 
-      Navigator.pop(context);
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
 
@@ -84,11 +85,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-      ),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -102,9 +100,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Register'),
-      ),
+      appBar: AppBar(title: const Text('Register')),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -116,10 +112,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               const Text(
                 'Create Account',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
               ),
 
               const SizedBox(height: 8),
@@ -127,18 +120,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               const Text(
                 'Create your AccessLink account',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                ),
+                style: TextStyle(fontSize: 16),
               ),
 
               const SizedBox(height: 50),
 
               const Text(
                 'Email',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(fontWeight: FontWeight.w600),
               ),
 
               const SizedBox(height: 8),
@@ -158,9 +147,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
               const Text(
                 'Password',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(fontWeight: FontWeight.w600),
               ),
 
               const SizedBox(height: 8),
@@ -186,16 +173,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       ? const SizedBox(
                           height: 22,
                           width: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                          ),
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text(
-                          'Register',
-                          style: TextStyle(
-                            fontSize: 16,
-                          ),
-                        ),
+                      : const Text('Register', style: TextStyle(fontSize: 16)),
                 ),
               ),
 
@@ -207,7 +187,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   const Text('Already have an account? '),
                   TextButton(
                     onPressed: () {
-                      Navigator.pop(context);
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const LoginScreen(),
+                        ),
+                      );
                     },
                     child: const Text('Login'),
                   ),

@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import 'home_screen.dart';
 import 'registration_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -33,14 +34,16 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await _authService.loginUser(
-        email,
-        password,
-      );
+      await _authService.loginUser(email, password);
 
       if (!mounted) return;
 
       _showMessage('Login successful!');
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
 
@@ -82,11 +85,8 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-      ),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -111,10 +111,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const Text(
                 'AccessLink',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
               ),
 
               const SizedBox(height: 8),
@@ -122,18 +119,14 @@ class _LoginScreenState extends State<LoginScreen> {
               const Text(
                 'Welcome back!',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                ),
+                style: TextStyle(fontSize: 16),
               ),
 
               const SizedBox(height: 50),
 
               const Text(
                 'Email',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(fontWeight: FontWeight.w600),
               ),
 
               const SizedBox(height: 8),
@@ -153,9 +146,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const Text(
                 'Password',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(fontWeight: FontWeight.w600),
               ),
 
               const SizedBox(height: 8),
@@ -175,9 +166,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const Align(
                 alignment: Alignment.centerRight,
-                child: Text(
-                  'Forgot Password?',
-                ),
+                child: Text('Forgot Password?'),
               ),
 
               const SizedBox(height: 30),
@@ -190,16 +179,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       ? const SizedBox(
                           height: 22,
                           width: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                          ),
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text(
-                          'Login',
-                          style: TextStyle(
-                            fontSize: 16,
-                          ),
-                        ),
+                      : const Text('Login', style: TextStyle(fontSize: 16)),
                 ),
               ),
 
@@ -214,8 +196,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) =>
-                              const RegistrationScreen(),
+                          builder: (context) => const RegistrationScreen(),
                         ),
                       );
                     },
