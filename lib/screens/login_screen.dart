@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import 'logout_screen.dart';
 import 'registration_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -42,6 +43,14 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       _showMessage('Login successful!');
+
+      // Navigate to LogoutScreen upon successful login
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const LogoutScreen(),
+        ),
+      );
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
 
