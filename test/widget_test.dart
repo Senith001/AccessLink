@@ -23,10 +23,7 @@ void main() {
       const MaterialApp(
         home: HomeScreen(
           initialPlaces: [
-            {
-              'name': 'City Hospital',
-              'category': 'Hospital',
-            },
+            {'name': 'City Hospital', 'category': 'Hospital'},
           ],
         ),
       ),
@@ -46,16 +43,14 @@ void main() {
     expect(find.text('Green Park'), findsNothing);
   });
 
-  testWidgets('search displays a no-results message',
-      (WidgetTester tester) async {
+  testWidgets('search displays a no-results message', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: HomeScreen(
           initialPlaces: [
-            {
-              'name': 'Central Park',
-              'category': 'Park',
-            },
+            {'name': 'Central Park', 'category': 'Park'},
           ],
         ),
       ),
@@ -74,17 +69,15 @@ void main() {
     expect(find.text('No accessible places found'), findsOneWidget);
   });
 
-  testWidgets('search results screen displays matching places',
-      (WidgetTester tester) async {
+  testWidgets('search results screen displays matching places', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: SearchResultsScreen(
           initialQuery: 'hospital',
           initialPlaces: [
-            {
-              'name': 'City Hospital',
-              'category': 'Hospital',
-            },
+            {'name': 'City Hospital', 'category': 'Hospital'},
           ],
         ),
       ),
@@ -95,17 +88,15 @@ void main() {
     expect(find.text('City Hospital'), findsOneWidget);
   });
 
-  testWidgets('search results screen handles no matches',
-      (WidgetTester tester) async {
+  testWidgets('search results screen handles no matches', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: SearchResultsScreen(
           initialQuery: 'cinema',
           initialPlaces: [
-            {
-              'name': 'Central Park',
-              'category': 'Park',
-            },
+            {'name': 'Central Park', 'category': 'Park'},
           ],
         ),
       ),
@@ -113,5 +104,41 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No accessible places found'), findsOneWidget);
+  });
+
+  testWidgets('accessibility filter shows only matching places', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SearchResultsScreen(
+          initialPlaces: [
+            {
+              'name': 'Accessible Park',
+              'category': 'Park',
+              'accessibility': {
+                'wheelchairAccessible': {'available': true},
+              },
+            },
+            {
+              'name': 'Parking Park',
+              'category': 'Park',
+              'accessibility': {
+                'accessibleParking': {'available': true},
+              },
+            },
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final wheelchairFilter = find.text('Wheelchair');
+    await tester.ensureVisible(wheelchairFilter);
+    await tester.tap(wheelchairFilter);
+    await tester.pump();
+
+    expect(find.text('Accessible Park'), findsOneWidget);
+    expect(find.text('Parking Park'), findsNothing);
   });
 }

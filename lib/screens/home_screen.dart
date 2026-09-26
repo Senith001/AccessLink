@@ -55,11 +55,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openSearch(BuildContext context) {
+    _openSearchWithFilter(context, null);
+  }
+
+  void _openSearchWithFilter(BuildContext context, String? filter) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => SearchResultsScreen(
           initialPlaces: widget.initialPlaces,
+          initialFilter: filter,
         ),
       ),
     );
@@ -78,9 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: double.infinity,
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(36),
-                  ),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(36)),
                 ),
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(22, 28, 22, 18),
@@ -99,18 +102,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const _AccessibilityShortcuts(),
+                    _AccessibilityShortcuts(
+                      onFilterSelected: (filter) =>
+                          _openSearchWithFilter(context, filter),
+                    ),
                     const SizedBox(height: 14),
                     const _MapPreview(),
                     const SizedBox(height: 14),
-                    const Text(
-                      'Nearby places',
-                      style: TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
                     if (_isLoadingPlaces)
                       const SizedBox(
                         height: 150,
@@ -131,9 +129,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           itemCount: _places.length,
                           separatorBuilder: (context, index) =>
                               const SizedBox(width: 12),
-                          itemBuilder: (context, index) => _NearbyPlaceCard(
-                            place: _places[index],
-                          ),
+                          itemBuilder: (context, index) =>
+                              _NearbyPlaceCard(place: _places[index]),
                         ),
                       ),
                   ],
@@ -171,10 +168,7 @@ class _HomeHeader extends StatelessWidget {
         ),
         const Text(
           'Accessibility map',
-          style: TextStyle(
-            fontFamily: 'Georgia',
-            fontSize: 27,
-          ),
+          style: TextStyle(fontFamily: 'Georgia', fontSize: 27),
         ),
         IconButton(
           onPressed: () {},
@@ -309,39 +303,56 @@ class _LocationSelector extends StatelessWidget {
 }
 
 class _AccessibilityShortcuts extends StatelessWidget {
-  const _AccessibilityShortcuts();
+  const _AccessibilityShortcuts({required this.onFilterSelected});
 
-  static const _items = <(IconData, String)>[
-    (Icons.accessible_forward, 'Wheelchair'),
-    (Icons.ramp_right, 'Ramp'),
-    (Icons.elevator, 'Elevator'),
-    (Icons.local_parking, 'Parking'),
-    (Icons.wc, 'Restroom'),
+  final ValueChanged<String> onFilterSelected;
+
+  static const _items = <(IconData, String, String)>[
+    (Icons.accessible_forward, 'Wheelchair', 'wheelchairaccessible'),
+    (Icons.local_parking, 'Parking', 'accessibleparking'),
+    (Icons.wc, 'Toilet', 'accessibletoilet'),
+    (Icons.elevator, 'Elevator', 'elevator'),
+    (Icons.volume_up, 'Audio', 'audiosupport'),
   ];
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        for (final item in _items)
-          Column(
-            children: [
-              Container(
-                height: 50,
-                width: 50,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8F2F7),
-                  border: Border.all(color: const Color(0xFFD3E1E8)),
-                  shape: BoxShape.circle,
+    return SizedBox(
+      height: 76,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          for (final item in _items)
+            Expanded(
+              child: InkWell(
+                onTap: () => onFilterSelected(item.$3),
+                borderRadius: BorderRadius.circular(28),
+                child: Column(
+                  children: [
+                    Container(
+                      height: 46,
+                      width: 46,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F2F7),
+                        border: Border.all(color: const Color(0xFFD3E1E8)),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(item.$1, color: const Color(0xFF53636C)),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      item.$2,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 10),
+                    ),
+                  ],
                 ),
-                child: Icon(item.$1, color: const Color(0xFF53636C)),
               ),
-              const SizedBox(height: 6),
-              Text(item.$2, style: const TextStyle(fontSize: 11)),
-            ],
-          ),
-      ],
+            ),
+        ],
+      ),
     );
   }
 }
@@ -373,48 +384,39 @@ class _NearbyPlaceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: 164,
-      child: InkWell(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => PlaceDetailsScreen(place: place),
-          ),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFFE4E7EA)),
+          borderRadius: BorderRadius.circular(10),
         ),
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFE4E7EA)),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                height: 52,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8F2F7),
-                  borderRadius: BorderRadius.circular(7),
-                ),
-                child: Icon(place.icon, color: const Color(0xFF62A4C6)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 52,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F2F7),
+                borderRadius: BorderRadius.circular(7),
               ),
-              const SizedBox(height: 10),
-              Text(
-                place.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${place.category} . ${place.distance}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12),
-              ),
-            ],
-          ),
+              child: Icon(place.icon, color: const Color(0xFF62A4C6)),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              place.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${place.category} . ${place.distance}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ],
         ),
       ),
     );
@@ -434,10 +436,22 @@ class _MapPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     final roads = [
-      [Offset(-20, size.height * .72), Offset(size.width + 20, size.height * .25)],
-      [Offset(size.width * .12, -20), Offset(size.width * .42, size.height + 20)],
-      [Offset(size.width * .72, -20), Offset(size.width * .5, size.height + 20)],
-      [Offset(-20, size.height * .28), Offset(size.width + 20, size.height * .6)],
+      [
+        Offset(-20, size.height * .72),
+        Offset(size.width + 20, size.height * .25),
+      ],
+      [
+        Offset(size.width * .12, -20),
+        Offset(size.width * .42, size.height + 20),
+      ],
+      [
+        Offset(size.width * .72, -20),
+        Offset(size.width * .5, size.height + 20),
+      ],
+      [
+        Offset(-20, size.height * .28),
+        Offset(size.width + 20, size.height * .6),
+      ],
     ];
 
     for (final road in roads) {
@@ -473,7 +487,11 @@ class _HomeBottomBar extends StatelessWidget {
       child: const Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _BottomBarItem(icon: Icons.home_outlined, label: 'Home', active: true),
+          _BottomBarItem(
+            icon: Icons.home_outlined,
+            label: 'Home',
+            active: true,
+          ),
           _BottomBarItem(icon: Icons.accessibility_new, label: 'Access'),
           _BottomBarItem(icon: Icons.notifications_none, label: 'Alerts'),
           _BottomBarItem(icon: Icons.person_outline, label: 'Profile'),
@@ -484,7 +502,11 @@ class _HomeBottomBar extends StatelessWidget {
 }
 
 class _BottomBarItem extends StatelessWidget {
-  const _BottomBarItem({required this.icon, required this.label, this.active = false});
+  const _BottomBarItem({
+    required this.icon,
+    required this.label,
+    this.active = false,
+  });
 
   final IconData icon;
   final String label;

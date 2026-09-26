@@ -10,6 +10,7 @@ class Place {
     this.accessibilityScore = 'Not rated',
     this.latitude,
     this.longitude,
+    this.accessibilityFeatures = const {},
     required this.icon,
   });
 
@@ -21,15 +22,27 @@ class Place {
 
   static Place? fromData(Map<String, dynamic> data) {
     final name = data['name'] as String?;
-    final category = data['category'] as String?;
-    if (name == null || category == null) return null;
+    final category =
+        data['category'] as String? ??
+        data['categoryName'] as String? ??
+        'Place';
+    if (name == null) return null;
+
+    final location = data['location'];
+    final latitude =
+        data['latitude'] as num? ??
+        (location is GeoPoint ? location.latitude : null);
+    final longitude =
+        data['longitude'] as num? ??
+        (location is GeoPoint ? location.longitude : null);
 
     return Place(
-      name: name,
+      name: name.trim(),
       category: category,
-      address: data['address'] as String? ?? '',
-      latitude: (data['latitude'] as num?)?.toDouble(),
-      longitude: (data['longitude'] as num?)?.toDouble(),
+      address: data['address'] as String? ?? data['city'] as String? ?? '',
+      latitude: latitude?.toDouble(),
+      longitude: longitude?.toDouble(),
+      accessibilityFeatures: _readAccessibilityFeatures(data),
       icon: iconForCategory(category),
     );
   }
@@ -41,8 +54,61 @@ class Place {
   final String accessibilityScore;
   final double? latitude;
   final double? longitude;
+  final Set<String> accessibilityFeatures;
   final IconData icon;
 }
+
+Set<String> _readAccessibilityFeatures(Map<String, dynamic> data) {
+  final rawFeatures =
+      data['accessibility'] ??
+      data['accessibilityFeatures'] ??
+      data['accessibility_features'] ??
+      data['features'];
+
+  if (rawFeatures is List) {
+    return rawFeatures.whereType<String>().map(_normaliseFeature).toSet();
+  }
+
+  final features = <String>{};
+
+  if (rawFeatures is Map) {
+    for (final entry in rawFeatures.entries) {
+      final value = entry.value;
+      if (value == true || (value is Map && value['available'] == true)) {
+        features.add(_normaliseFeature(entry.key.toString()));
+      }
+    }
+  }
+
+  features.addAll({
+    for (final feature in accessibilityFeatureNames)
+      if (data[feature] == true) feature,
+  });
+  features.addAll({
+    if (data['hasWheelchairAccess'] == true) 'wheelchairaccessible',
+    if (data['hasAccessibleParking'] == true) 'accessibleparking',
+    if (data['hasAccessibleToilet'] == true) 'accessibletoilet',
+    if (data['hasAudioSupport'] == true) 'audiosupport',
+    if (data['hasElevator'] == true) 'elevator',
+    if (data['hasHearingSupport'] == true) 'hearingsupport',
+    if (data['hasTactilePaving'] == true) 'tactilepaving',
+  });
+
+  return features;
+}
+
+String _normaliseFeature(String value) =>
+    value.trim().toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
+
+const accessibilityFeatureNames = [
+  'accessibleparking',
+  'accessibletoilet',
+  'audiosupport',
+  'elevator',
+  'hearingsupport',
+  'tactilepaving',
+  'wheelchairaccessible',
+];
 
 IconData iconForCategory(String category) {
   switch (category.toLowerCase()) {

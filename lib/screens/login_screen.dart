@@ -35,10 +35,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await _authService.loginUser(
-        email,
-        password,
-      );
+      await _authService.loginUser(email, password);
 
       if (!mounted) return;
 
@@ -47,9 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // Navigate to the home screen upon successful login
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (context) => const HomeScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
       );
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
@@ -92,11 +87,8 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-      ),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -117,8 +109,10 @@ class _LoginScreenState extends State<LoginScreen> {
           children: [
             // Top App Bar Area with Back Arrow
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 12.0,
+              ),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: IconButton(
@@ -354,14 +348,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: RichText(
                             textAlign: TextAlign.center,
                             text: const TextSpan(
-                              style:
-                                  TextStyle(color: Colors.black, fontSize: 14),
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontSize: 14,
+                              ),
                               children: [
                                 TextSpan(text: "Dont't have on account "),
                                 TextSpan(
                                   text: 'Sing Up',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold),
+                                  style: TextStyle(fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
@@ -447,7 +442,11 @@ class _GoogleLogoPainter extends CustomPainter {
     final double h = size.height;
     final double strokeWidth = w * 0.22;
     final Rect rect = Rect.fromLTWH(
-        strokeWidth / 2, strokeWidth / 2, w - strokeWidth, h - strokeWidth);
+      strokeWidth / 2,
+      strokeWidth / 2,
+      w - strokeWidth,
+      h - strokeWidth,
+    );
 
     final Paint paint = Paint()
       ..style = PaintingStyle.stroke
@@ -475,12 +474,15 @@ class _GoogleLogoPainter extends CustomPainter {
       ..color = const Color(0xFF4285F4)
       ..style = PaintingStyle.fill;
 
-    final Rect barRect =
-        Rect.fromLTWH(w * 0.45, h / 2 - strokeWidth / 2, w * 0.55, strokeWidth);
+    final Rect barRect = Rect.fromLTWH(
+      w * 0.45,
+      h / 2 - strokeWidth / 2,
+      w * 0.55,
+      strokeWidth,
+    );
     canvas.drawRect(barRect, fillPaint);
   }
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-
