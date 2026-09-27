@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import '../repositories/user_repository.dart';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
@@ -18,6 +19,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _confirmPasswordController = TextEditingController();
 
   final _authService = AuthService();
+  final _userRepository = UserRepository();
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -49,10 +51,41 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     });
 
     try {
-      await _authService.registerUser(
+      final credential = await _authService.registerUser(
         email,
         password,
       );
+
+      if (!mounted) return;
+
+      // Save user data to Firestore
+      try {
+        String name = _nameOrEmailController.text.trim();
+        if (name.isEmpty) {
+          name = email; // Fallback to email if name is empty
+        }
+        
+        String phone = _phoneController.text.trim();
+        
+        await _userRepository.createUser(
+          uid: credential.user!.uid,
+          name: name,
+          email: email,
+          phone: phone.isEmpty ? null : phone,
+        );
+      } on FirebaseException catch (e) {
+        // If Firestore write fails after successful auth, show warning but don't crash
+        debugPrint('Failed to save user profile: ${e.message}');
+        if (mounted) {
+          _showMessage('Account created, but saving your profile failed. Please update it later.');
+        }
+      } catch (e) {
+        // Generic error for any other exceptions during Firestore write
+        debugPrint('Failed to save user profile: $e');
+        if (mounted) {
+          _showMessage('Account created, but saving your profile failed. Please update it later.');
+        }
+      }
 
       if (!mounted) return;
 
@@ -549,4 +582,3 @@ class _GoogleLogoPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-
