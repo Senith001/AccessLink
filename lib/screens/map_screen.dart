@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../models/place.dart';
 import '../services/place_service.dart';
+import '../services/travel_time_service.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -14,6 +15,7 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   final PlaceService _placeService = PlaceService();
+  final TravelTimeService _travelTimeService = TravelTimeService();
 
   late Future<List<Place>> _placesFuture;
 
@@ -21,6 +23,86 @@ class _MapScreenState extends State<MapScreen> {
   void initState() {
     super.initState();
     _placesFuture = _placeService.getPlaces();
+  }
+
+  void _showPlaceDetails(Place place, Place startPlace) {
+    final distanceKm = _travelTimeService.calculateDistanceKm(
+      startLatitude: startPlace.latitude,
+      startLongitude: startPlace.longitude,
+      destinationLatitude: place.latitude,
+      destinationLongitude: place.longitude,
+    );
+
+    final estimatedMinutes =
+        _travelTimeService.calculateEstimatedTravelTime(
+      distanceKm: distanceKm,
+    );
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                place.name,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              Text(
+                'Category: ${place.categoryName}',
+              ),
+              const SizedBox(height: 5),
+
+              Text(
+                'Address: ${place.address}',
+              ),
+              const SizedBox(height: 5),
+
+              Text(
+                'Location: ${place.latitude}, ${place.longitude}',
+              ),
+
+              const Divider(height: 30),
+
+              const Text(
+                'Journey Estimate',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              Text(
+                'Distance: ${distanceKm.toStringAsFixed(2)} km',
+              ),
+              const SizedBox(height: 5),
+
+              Text(
+                'Estimated Travel Time: $estimatedMinutes minutes',
+              ),
+              const SizedBox(height: 5),
+
+              const Text(
+                'Based on an average travel speed of 40 km/h',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -52,11 +134,13 @@ class _MapScreenState extends State<MapScreen> {
             );
           }
 
+          final startPlace = places.first;
+
           return FlutterMap(
             options: MapOptions(
               initialCenter: LatLng(
-                places.first.latitude,
-                places.first.longitude,
+                startPlace.latitude,
+                startPlace.longitude,
               ),
               initialZoom: 12,
             ),
@@ -77,38 +161,9 @@ class _MapScreenState extends State<MapScreen> {
                     height: 50,
                     child: GestureDetector(
                       onTap: () {
-                        showModalBottomSheet(
-                          context: context,
-                          builder: (context) {
-                            return Padding(
-                              padding: const EdgeInsets.all(20),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    place.name,
-                                    style: const TextStyle(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    'Category: ${place.categoryName}',
-                                  ),
-                                  const SizedBox(height: 5),
-                                  Text(
-                                    'Address: ${place.address}',
-                                  ),
-                                  const SizedBox(height: 5),
-                                  Text(
-                                    'Location: ${place.latitude}, ${place.longitude}',
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
+                        _showPlaceDetails(
+                          place,
+                          startPlace,
                         );
                       },
                       child: const Icon(
