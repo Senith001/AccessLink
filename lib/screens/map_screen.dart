@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import '../models/place.dart';
 import '../services/place_service.dart';
 import '../services/travel_time_service.dart';
+import '../services/directions_service.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -16,6 +17,7 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen> {
   final PlaceService _placeService = PlaceService();
   final TravelTimeService _travelTimeService = TravelTimeService();
+  final DirectionsService _directionsService = DirectionsService();
 
   late Future<List<Place>> _placesFuture;
 
@@ -96,6 +98,22 @@ class _MapScreenState extends State<MapScreen> {
                 style: TextStyle(
                   fontSize: 12,
                   fontStyle: FontStyle.italic,
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    await _directionsService.openDirections(
+                      destinationLatitude: place.latitude,
+                      destinationLongitude: place.longitude,
+                    );
+                  },
+                  icon: const Icon(Icons.directions),
+                  label: const Text('Get Directions'),
                 ),
               ),
             ],
