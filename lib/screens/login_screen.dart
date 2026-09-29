@@ -1,8 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../navigation/bottom_navigation.dart';
 import '../services/auth_service.dart';
-import 'logout_screen.dart';
 import 'registration_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -44,12 +44,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
       _showMessage('Login successful!');
 
-      // Navigate to LogoutScreen upon successful login
-      Navigator.push(
+      Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
-          builder: (context) => const LogoutScreen(),
+          builder: (context) => const BottomNavigationScreen(),
         ),
+        (route) => false,
       );
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
@@ -483,4 +483,3 @@ class _GoogleLogoPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-

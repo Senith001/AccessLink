@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../screens/logout_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -9,10 +10,13 @@ class SettingsScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Settings'),
       ),
-      body: const Center(
-        child: Text(
-          'Settings screen',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w500),
+      body: Center(
+        child: ElevatedButton(
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const LogoutScreen()),
+          ),
+          child: const Text('Log out'),
         ),
       ),
     );
