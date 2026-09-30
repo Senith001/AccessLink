@@ -10,7 +10,19 @@ class PlaceService {
   static const double _defaultLongitude = 79.8612;
 
   static const Map<String, List<String>> _categoryMap = {
-    'All': ['restaurant', 'toilets', 'hospital', 'pharmacy', 'fuel', 'bank', 'supermarket', 'bus_stop', 'school', 'parking', 'hotel'],
+    'All': [
+      'restaurant',
+      'toilets',
+      'hospital',
+      'pharmacy',
+      'fuel',
+      'bank',
+      'supermarket',
+      'bus_stop',
+      'school',
+      'parking',
+      'hotel',
+    ],
     'Restaurants': ['restaurant'],
     'Hospitals': ['hospital'],
     'Hotels': ['hotel'],
@@ -25,14 +37,62 @@ class PlaceService {
   };
 
   static const List<Map<String, dynamic>> _fallbackPlaces = [
-    {'name': 'Colombo City Hospital', 'address': 'Galle Road, Colombo', 'categoryName': 'Hospital', 'lat': 6.9271, 'lng': 79.8612},
-    {'name': 'Cinnamon Grand', 'address': 'Colombo 03', 'categoryName': 'Hotel', 'lat': 6.9271, 'lng': 79.8487},
-    {'name': 'Laksala', 'address': 'Kollupitiya', 'categoryName': 'Supermarket', 'lat': 6.9054, 'lng': 79.8533},
-    {'name': 'Avenue Hospital', 'address': 'Ward Place', 'categoryName': 'Hospital', 'lat': 6.9034, 'lng': 79.8746},
-    {'name': 'Colombo Public Toilet', 'address': 'Fort', 'categoryName': 'Washroom', 'lat': 6.9355, 'lng': 79.8437},
-    {'name': 'Kingsbury Restaurant', 'address': 'Marine Drive', 'categoryName': 'Restaurant', 'lat': 6.9255, 'lng': 79.8407},
-    {'name': 'Cargills Food City', 'address': 'Borella', 'categoryName': 'Supermarket', 'lat': 6.9138, 'lng': 79.8789},
-    {'name': 'Bocca Restaurant', 'address': 'Colombo 07', 'categoryName': 'Restaurant', 'lat': 6.9068, 'lng': 79.8544},
+    {
+      'name': 'Colombo City Hospital',
+      'address': 'Galle Road, Colombo',
+      'categoryName': 'Hospital',
+      'lat': 6.9271,
+      'lng': 79.8612,
+    },
+    {
+      'name': 'Cinnamon Grand',
+      'address': 'Colombo 03',
+      'categoryName': 'Hotel',
+      'lat': 6.9271,
+      'lng': 79.8487,
+    },
+    {
+      'name': 'Laksala',
+      'address': 'Kollupitiya',
+      'categoryName': 'Supermarket',
+      'lat': 6.9054,
+      'lng': 79.8533,
+    },
+    {
+      'name': 'Avenue Hospital',
+      'address': 'Ward Place',
+      'categoryName': 'Hospital',
+      'lat': 6.9034,
+      'lng': 79.8746,
+    },
+    {
+      'name': 'Colombo Public Toilet',
+      'address': 'Fort',
+      'categoryName': 'Washroom',
+      'lat': 6.9355,
+      'lng': 79.8437,
+    },
+    {
+      'name': 'Kingsbury Restaurant',
+      'address': 'Marine Drive',
+      'categoryName': 'Restaurant',
+      'lat': 6.9255,
+      'lng': 79.8407,
+    },
+    {
+      'name': 'Cargills Food City',
+      'address': 'Borella',
+      'categoryName': 'Supermarket',
+      'lat': 6.9138,
+      'lng': 79.8789,
+    },
+    {
+      'name': 'Bocca Restaurant',
+      'address': 'Colombo 07',
+      'categoryName': 'Restaurant',
+      'lat': 6.9068,
+      'lng': 79.8544,
+    },
   ];
 
   Future<List<Place>> getPlaces({
@@ -49,14 +109,18 @@ class PlaceService {
     final places = <Place>[];
 
     try {
-      final futures = selectedTags.map((tag) => _fetchOverpassTags(
-            latitude: lat,
-            longitude: lon,
-            radiusInMeters: radiusInMeters,
-            tag: tag,
-          ));
+      final futures = selectedTags.map(
+        (tag) => _fetchOverpassTags(
+          latitude: lat,
+          longitude: lon,
+          radiusInMeters: radiusInMeters,
+          tag: tag,
+        ),
+      );
 
-      final results = await Future.wait(futures).timeout(const Duration(seconds: 12));
+      final results = await Future.wait(
+        futures,
+      ).timeout(const Duration(seconds: 12));
 
       for (final r in results) {
         places.addAll(r);
@@ -76,10 +140,7 @@ class PlaceService {
             name: item['name'] as String,
             address: item['address'] as String,
             categoryName: item['categoryName'] as String,
-            location: GeoPoint(
-              item['lat'] as double,
-              item['lng'] as double,
-            ),
+            location: GeoPoint(item['lat'] as double, item['lng'] as double),
             isVerified: true,
           ),
         )
@@ -95,10 +156,7 @@ class PlaceService {
             name: item['name'] as String,
             address: item['address'] as String,
             categoryName: item['categoryName'] as String,
-            location: GeoPoint(
-              item['lat'] as double,
-              item['lng'] as double,
-            ),
+            location: GeoPoint(item['lat'] as double, item['lng'] as double),
             isVerified: true,
           ),
         )
@@ -111,7 +169,8 @@ class PlaceService {
     required int radiusInMeters,
     required String tag,
   }) async {
-    final query = '''
+    final query =
+        '''
       [out:json][timeout:10];
       (
         node["amenity"="$tag"](around:$radiusInMeters,$latitude,$longitude);
@@ -127,7 +186,9 @@ class PlaceService {
     ''';
 
     final encodedQuery = Uri.encodeComponent(query);
-    final url = Uri.parse('https://overpass-api.de/api/interpreter?data=$encodedQuery');
+    final url = Uri.parse(
+      'https://overpass-api.de/api/interpreter?data=$encodedQuery',
+    );
 
     try {
       final response = await http.get(url).timeout(const Duration(seconds: 10));
@@ -143,8 +204,10 @@ class PlaceService {
         final map = Map<String, dynamic>.from(element as Map<dynamic, dynamic>);
         final tags = Map<String, dynamic>.from(map['tags'] ?? const {});
 
-        final latValue = map['lat'] ?? (map['center'] is Map ? map['center']['lat'] : null);
-        final lonValue = map['lon'] ?? (map['center'] is Map ? map['center']['lon'] : null);
+        final latValue =
+            map['lat'] ?? (map['center'] is Map ? map['center']['lat'] : null);
+        final lonValue =
+            map['lon'] ?? (map['center'] is Map ? map['center']['lon'] : null);
 
         if (latValue == null || lonValue == null) {
           continue;
@@ -158,9 +221,13 @@ class PlaceService {
             'public place';
 
         final placeName =
-            (tags['name'] ?? tags['brand'] ?? tags['operator'] ?? 'Public place')
+            (tags['name'] ??
+                    tags['brand'] ??
+                    tags['operator'] ??
+                    'Public place')
                 .toString();
-        final address = (tags['addr:street'] ?? 'OpenStreetMap place').toString();
+        final address = (tags['addr:street'] ?? 'OpenStreetMap place')
+            .toString();
 
         places.add(
           Place(
@@ -182,7 +249,8 @@ class PlaceService {
 
   Future<List<Place>> getPlacesByCategory(String category) async {
     final normalizedCategory = category.trim();
-    if (normalizedCategory.isEmpty || normalizedCategory.toLowerCase() == 'all') {
+    if (normalizedCategory.isEmpty ||
+        normalizedCategory.toLowerCase() == 'all') {
       return getPlaces();
     }
 

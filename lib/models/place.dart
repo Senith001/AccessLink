@@ -17,9 +17,7 @@ class Place {
     required this.isVerified,
   });
 
-  factory Place.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
+  factory Place.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
 
     return Place(
