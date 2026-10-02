@@ -5,7 +5,7 @@ import 'firebase_options.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'accessibility/accessibility_settings.dart';
 import 'accessibility/voice_guidance.dart';
-import 'navigation/bottom_navigation.dart';
+import 'screens/login_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -94,7 +94,7 @@ class _AccessLinkAppState extends State<AccessLinkApp>
                 child: child!,
               );
             },
-            home: widget.home ?? const BottomNavigationScreen(),
+            home: widget.home ?? const LoginScreen(),
           ),
         ),
       ),

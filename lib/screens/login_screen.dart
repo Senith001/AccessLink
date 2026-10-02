@@ -2,7 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
-import 'logout_screen.dart';
+import '../navigation/bottom_navigation.dart';
 import 'registration_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -44,14 +44,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
       _showMessage('Login successful!');
 
-      // Navigate to LogoutScreen upon successful login
-      Navigator.push(
+      // Navigate to the Home shell and remove login from the back stack
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => const LogoutScreen(),
+          builder: (context) => const BottomNavigationScreen(),
         ),
       );
     } on FirebaseAuthException catch (e) {
+      debugPrint('AUTH ERROR (login) code=${e.code} msg=${e.message}');
       if (!mounted) return;
 
       String message;
@@ -79,6 +80,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       _showMessage(message);
     } catch (e) {
+      debugPrint('AUTH UNKNOWN (login) err=$e');
       if (!mounted) return;
 
       _showMessage('Something went wrong. Please try again.');

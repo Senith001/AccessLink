@@ -74,6 +74,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           phone: phone.isEmpty ? null : phone,
         );
       } on FirebaseException catch (e) {
+        debugPrint('PROFILE WRITE ERROR code=${e.code} msg=${e.message}');
         // If Firestore write fails after successful auth, show warning but don't crash
         debugPrint('Failed to save user profile: ${e.message}');
         if (mounted) {
@@ -92,6 +93,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       _showMessage('Registration successful!');
       Navigator.pop(context);
     } on FirebaseAuthException catch (e) {
+      debugPrint('AUTH ERROR (register) code=${e.code} msg=${e.message}');
       if (!mounted) return;
 
       String message;
@@ -113,6 +115,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       }
       _showMessage(message);
     } catch (e) {
+      debugPrint('AUTH UNKNOWN (register) err=$e');
       if (!mounted) return;
       _showMessage('Something went wrong. Please try again.');
     } finally {
