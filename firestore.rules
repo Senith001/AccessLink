@@ -1,0 +1,104 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    
+    function userRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    
+    function isStaff() {
+      return isSignedIn() && (userRole() == 'admin' || userRole() == 'moderator');
+    }
+
+    // Users collection - auth-based access with role protection
+    match /users/{uid} {
+      // Users can read own doc; staff can read any
+      allow read: if isOwner(uid) || isStaff();
+      
+      // New users cannot self-assign elevated role
+      allow create: if isOwner(uid) && request.resource.data.role == 'user';
+      
+      // Owner cannot change their own role (no self-escalation); staff may update including role
+      allow update: if (isOwner(uid) && request.resource.data.role == resource.data.role) || isStaff();
+      
+      // Only staff can delete users
+      allow delete: if isStaff();
+      
+      // Favorites subcollection - per-user private data
+      match /favorites/{placeId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // Categories collection - public read, staff-curated content
+    match /categories/{categoryId} {
+      allow read: if true; // Public
+      allow write: if isStaff(); // Curated content
+    }
+
+    // Places collection - public read, staff-managed content
+    match /places/{placeId} {
+      allow read: if true; // Public
+      allow create, delete: if isStaff();
+      // Place curation, verification, score, rating aggregation are staff/curated writes for MVP
+      // Note: review-driven ratingAverage/ratingCount updates are performed by trusted/admin paths for MVP
+      // A future Cloud Function or narrowly-scoped rule could allow authenticated users to update 
+      // ONLY ratingAverage/ratingCount fields
+      allow update: if isStaff();
+    }
+
+    // Reviews collection - public read, authenticated create (open to all userTypes)
+    match /reviews/{reviewId} {
+      allow read: if true; // Public
+      // Contribution open to all userTypes - any authenticated user can create reviews
+      allow create: if isSignedIn() && 
+                       request.resource.data.userId == request.auth.uid && 
+                       request.resource.data.rating is int && 
+                       request.resource.data.rating >= 1 && 
+                       request.resource.data.rating <= 5;
+      // Author manages own; staff can manage any
+      allow update, delete: if (isSignedIn() && resource.data.userId == request.auth.uid) || isStaff();
+    }
+
+    // Reports collection - authenticated filing, staff management
+    match /reports/{reportId} {
+      // Open to all userTypes - any authenticated user can file a report; must start pending
+      allow create: if isSignedIn() && 
+                       request.resource.data.reportedBy == request.auth.uid && 
+                       request.resource.data.status == 'pending';
+      // Staff see all; reporter sees own
+      allow read: if isStaff() || (isSignedIn() && resource.data.reportedBy == request.auth.uid);
+      // Only staff change status/apply actions
+      allow update, delete: if isStaff();
+    }
+
+    // Verification records - public read, staff-managed
+    match /verification_records/{recordId} {
+      allow read: if true; // Public - supports viewing verified info
+      allow write: if isStaff();
+    }
+
+    // Contributions collection - OUT OF SCOPE, reserved/unused for MVP
+    match /contributions/{docId} {
+      allow read, write: if false; // Default deny - reserved/unused for MVP
+    }
+
+    // Accessibility features collection - OUT OF SCOPE, reserved/unused for MVP  
+    match /accessibility_features/{docId} {
+      allow read, write: if false; // Default deny - reserved/unused for MVP
+    }
+
+    // Catch-all deny rule - earlier specific matches take precedence
+    match /{document=**} {
+      allow read, write: if false; // Default deny for any unmatched paths
+    }
+  }
+}
