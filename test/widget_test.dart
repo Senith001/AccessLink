@@ -19,6 +19,16 @@ void main() {
     expect(find.text('Accessibility map'), findsOneWidget);
   });
 
+  testWidgets('home opens saved places screen', (WidgetTester tester) async {
+    await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
+
+    await tester.tap(find.byIcon(Icons.favorite_border));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Saved places'), findsOneWidget);
+    expect(find.text('No saved places yet.'), findsOneWidget);
+  });
+
   testWidgets('search displays matching places', (WidgetTester tester) async {
     await tester.pumpWidget(
       const MaterialApp(

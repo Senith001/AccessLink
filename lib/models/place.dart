@@ -5,13 +5,13 @@ import 'package:flutter/material.dart';
 
 class Place {
   const Place({
+    required this.id,
     required this.name,
     required this.category,
     this.address = '',
     this.city = '',
     this.district = '',
     this.distance = 'Near you',
-    this.accessibilityScore = 'Not rated',
     this.latitude,
     this.longitude,
     this.accessibilityFeatures = const {},
@@ -21,31 +21,32 @@ class Place {
   static Place? fromFirestore(
     QueryDocumentSnapshot<Map<String, dynamic>> document,
   ) {
-    return fromData(document.data());
+    return fromData(document.data(), id: document.id);
   }
 
-  static Place? fromData(Map<String, dynamic> data) {
-    final name = data['name'] as String?;
+  static Place? fromData(Map<String, dynamic> data, {String? id}) {
+    final name = _readString(data, 'name');
     final category =
-        data['category'] as String? ??
-        data['categoryName'] as String? ??
+        _readString(data, 'category') ??
+        _readString(data, 'categoryName') ??
         'Place';
-    if (name == null) return null;
+    if (name == null || name.trim().isEmpty) return null;
 
     final location = data['location'];
     final latitude =
-        data['latitude'] as num? ??
+        _readNumber(data, 'latitude') ??
         (location is GeoPoint ? location.latitude : null);
     final longitude =
-        data['longitude'] as num? ??
+        _readNumber(data, 'longitude') ??
         (location is GeoPoint ? location.longitude : null);
 
     return Place(
+      id: id ?? _readString(data, 'id') ?? _placeIdFor(name.trim(), category),
       name: name.trim(),
       category: category,
-      address: data['address'] as String? ?? data['city'] as String? ?? '',
-      city: data['city'] as String? ?? '',
-      district: data['district'] as String? ?? '',
+      address: _readString(data, 'address') ?? _readString(data, 'city') ?? '',
+      city: _readString(data, 'city') ?? '',
+      district: _readString(data, 'district') ?? '',
       latitude: latitude?.toDouble(),
       longitude: longitude?.toDouble(),
       accessibilityFeatures: _readAccessibilityFeatures(data),
@@ -54,30 +55,18 @@ class Place {
   }
 
   final String name;
+  final String id;
   final String category;
   final String address;
   final String city;
   final String district;
   final String distance;
-  final String accessibilityScore;
   final double? latitude;
   final double? longitude;
   final Set<String> accessibilityFeatures;
   final IconData icon;
 
   bool get hasCoordinates => latitude != null && longitude != null;
-
-  bool get hasAccessibilityScore => accessibilityFeatures.isNotEmpty;
-
-  int get accessibilityScorePercent {
-    if (!hasAccessibilityScore) return 0;
-    return ((accessibilityFeatures.length / accessibilityFeatureNames.length) *
-            100)
-        .round()
-        .clamp(0, 100);
-  }
-
-  String get accessibilityScoreLabel => 'Score $accessibilityScorePercent%';
 
   String get locationLabel {
     if (city.isNotEmpty && district.isNotEmpty) return '$city, $district';
@@ -86,15 +75,15 @@ class Place {
     return address;
   }
 
-  Place copyWith({String? distance, String? accessibilityScore}) {
+  Place copyWith({String? distance}) {
     return Place(
+      id: id,
       name: name,
       category: category,
       address: address,
       city: city,
       district: district,
       distance: distance ?? this.distance,
-      accessibilityScore: accessibilityScore ?? this.accessibilityScore,
       latitude: latitude,
       longitude: longitude,
       accessibilityFeatures: accessibilityFeatures,
@@ -122,6 +111,26 @@ class Place {
     );
   }
 }
+
+String? _readString(Map<String, dynamic> data, String key) {
+  final value = data[key];
+  if (value == null) return null;
+  if (value is String) return value;
+  return value.toString();
+}
+
+num? _readNumber(Map<String, dynamic> data, String key) {
+  final value = data[key];
+  if (value == null) return null;
+  if (value is num) return value;
+  if (value is String) return num.tryParse(value);
+  return null;
+}
+
+String _placeIdFor(String name, String category) => '${name}_$category'
+    .trim()
+    .toLowerCase()
+    .replaceAll(RegExp(r'[^a-z0-9]+'), '_');
 
 class PlaceLocation {
   const PlaceLocation({

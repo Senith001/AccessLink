@@ -2,7 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../core/database/firestore_collections.dart';
+import '../models/accessibility_score.dart';
 import '../models/place.dart';
+import 'saved_places_screen.dart';
 import 'search_results_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -65,6 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context) => SearchResultsScreen(
           initialPlaces: widget.initialPlaces,
           initialNearbyOnly: true,
+          enableFavorites: true,
         ),
       ),
     );
@@ -77,8 +80,16 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context) => SearchResultsScreen(
           initialPlaces: widget.initialPlaces,
           initialFilter: filter,
+          enableFavorites: true,
         ),
       ),
+    );
+  }
+
+  void _openSavedPlaces(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const SavedPlacesScreen()),
     );
   }
 
@@ -142,7 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            const _HomeBottomBar(),
+            _HomeBottomBar(onSavedPlaces: () => _openSavedPlaces(context)),
           ],
         ),
       ),
@@ -475,7 +486,7 @@ class _NearbyPlaceCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 12),
             ),
-            if (place.hasAccessibilityScore) ...[
+            if (AccessibilityScore.fromPlace(place).canShow) ...[
               const SizedBox(height: 6),
               _HomeScoreBadge(place: place),
             ],
@@ -501,7 +512,7 @@ class _HomeScoreBadge extends StatelessWidget {
         border: Border.all(color: const Color(0xFFBFE4C8)),
       ),
       child: Text(
-        place.accessibilityScoreLabel,
+        AccessibilityScore.fromPlace(place).label,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(
@@ -567,7 +578,9 @@ class _MapPainter extends CustomPainter {
 }
 
 class _HomeBottomBar extends StatelessWidget {
-  const _HomeBottomBar();
+  const _HomeBottomBar({required this.onSavedPlaces});
+
+  final VoidCallback onSavedPlaces;
 
   @override
   Widget build(BuildContext context) {
@@ -575,17 +588,21 @@ class _HomeBottomBar extends StatelessWidget {
       height: 62,
       color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 8),
-      child: const Row(
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _BottomBarItem(
+          const _BottomBarItem(
             icon: Icons.home_outlined,
             label: 'Home',
             active: true,
           ),
-          _BottomBarItem(icon: Icons.accessibility_new, label: 'Access'),
-          _BottomBarItem(icon: Icons.notifications_none, label: 'Alerts'),
-          _BottomBarItem(icon: Icons.person_outline, label: 'Profile'),
+          const _BottomBarItem(icon: Icons.accessibility_new, label: 'Access'),
+          _BottomBarItem(
+            icon: Icons.favorite_border,
+            label: 'Saved',
+            onTap: onSavedPlaces,
+          ),
+          const _BottomBarItem(icon: Icons.person_outline, label: 'Profile'),
         ],
       ),
     );
@@ -597,33 +614,39 @@ class _BottomBarItem extends StatelessWidget {
     required this.icon,
     required this.label,
     this.active = false,
+    this.onTap,
   });
 
   final IconData icon;
   final String label;
   final bool active;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final color = active ? const Color(0xFF2C4552) : const Color(0xFF4F5962);
-    return Container(
-      padding: active
-          ? const EdgeInsets.symmetric(horizontal: 12, vertical: 5)
-          : EdgeInsets.zero,
-      decoration: active
-          ? BoxDecoration(
-              color: const Color(0xFF3A99BC),
-              borderRadius: BorderRadius.circular(18),
-            )
-          : null,
-      child: Row(
-        children: [
-          Icon(icon, size: 24, color: color),
-          if (active) ...[
-            const SizedBox(width: 5),
-            Text(label, style: TextStyle(fontSize: 11, color: color)),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: active
+            ? const EdgeInsets.symmetric(horizontal: 12, vertical: 5)
+            : EdgeInsets.zero,
+        decoration: active
+            ? BoxDecoration(
+                color: const Color(0xFF3A99BC),
+                borderRadius: BorderRadius.circular(18),
+              )
+            : null,
+        child: Row(
+          children: [
+            Icon(icon, size: 24, color: color),
+            if (active) ...[
+              const SizedBox(width: 5),
+              Text(label, style: TextStyle(fontSize: 11, color: color)),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

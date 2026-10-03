@@ -2,7 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../core/database/firestore_collections.dart';
+import '../models/accessibility_score.dart';
 import '../models/place.dart';
+import '../services/favorites_service.dart';
 import '../services/location_service.dart';
 
 class SearchResultsScreen extends StatefulWidget {
@@ -13,6 +15,7 @@ class SearchResultsScreen extends StatefulWidget {
     this.initialFilter,
     this.initialNearbyOnly = false,
     this.initialLocation,
+    this.enableFavorites = false,
     this.locationService = const LocationService(),
   });
 
@@ -21,6 +24,7 @@ class SearchResultsScreen extends StatefulWidget {
   final String? initialFilter;
   final bool initialNearbyOnly;
   final PlaceLocation? initialLocation;
+  final bool enableFavorites;
   final LocationService locationService;
 
   @override
@@ -36,6 +40,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   String? _loadError;
   String? _locationError;
   PlaceLocation? _nearbyLocation;
+  FavoritesService? _favoritesService;
   final Set<String> _selectedFilters = {};
   String? _selectedCategory;
   late bool _nearbyOnly;
@@ -102,6 +107,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     _locationController = TextEditingController();
     _nearbyOnly = widget.initialNearbyOnly;
     _nearbyLocation = widget.initialLocation;
+    if (widget.enableFavorites) {
+      _favoritesService = FavoritesService();
+    }
     if (widget.initialFilter != null) {
       _selectedFilters.add(widget.initialFilter!);
     }
@@ -275,11 +283,43 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     if (_results.isEmpty) {
       return _NoResults(query: query, onClear: _clearSearch);
     }
-    return ListView.separated(
-      itemCount: _results.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 12),
-      itemBuilder: (context, index) => _ResultTile(place: _results[index]),
-    );
+    final favoritesService = _favoritesService;
+    if (favoritesService != null) {
+      return StreamBuilder<Set<String>>(
+        stream: favoritesService.favoriteIds(),
+        builder: (context, snapshot) {
+          final favoriteIds = snapshot.data ?? <String>{};
+          return _ResultList(
+            places: _results,
+            favoriteIds: favoriteIds,
+            onToggleFavorite: _toggleFavorite,
+          );
+        },
+      );
+    }
+
+    return _ResultList(places: _results);
+  }
+
+  Future<void> _toggleFavorite(Place place, bool isSaved) async {
+    final favoritesService = _favoritesService;
+    if (favoritesService == null) return;
+
+    try {
+      await favoritesService.toggleFavorite(place, isSaved);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isSaved ? 'Removed from saved places' : 'Saved to favourites',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.toString())));
+    }
   }
 
   void _clearSearch() {
@@ -399,6 +439,34 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       _loadError = null;
     });
     _loadPlaces();
+  }
+}
+
+class _ResultList extends StatelessWidget {
+  const _ResultList({
+    required this.places,
+    this.favoriteIds = const {},
+    this.onToggleFavorite,
+  });
+
+  final List<Place> places;
+  final Set<String> favoriteIds;
+  final Future<void> Function(Place place, bool isSaved)? onToggleFavorite;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      itemCount: places.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final place = places[index];
+        return _ResultTile(
+          place: place,
+          isSaved: favoriteIds.contains(place.id),
+          onToggleFavorite: onToggleFavorite,
+        );
+      },
+    );
   }
 }
 
@@ -628,8 +696,15 @@ InputDecoration _locationSearchDecoration() => InputDecoration(
 );
 
 class _ResultTile extends StatelessWidget {
-  const _ResultTile({required this.place});
+  const _ResultTile({
+    required this.place,
+    this.isSaved = false,
+    this.onToggleFavorite,
+  });
+
   final Place place;
+  final bool isSaved;
+  final Future<void> Function(Place place, bool isSaved)? onToggleFavorite;
 
   @override
   Widget build(BuildContext context) {
@@ -657,7 +732,7 @@ class _ResultTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text('${place.category} . ${place.distance}'),
-                if (place.hasAccessibilityScore) ...[
+                if (AccessibilityScore.fromPlace(place).canShow) ...[
                   const SizedBox(height: 6),
                   _AccessibilityScoreBadge(place: place),
                 ],
@@ -669,6 +744,15 @@ class _ResultTile extends StatelessWidget {
               ],
             ),
           ),
+          if (onToggleFavorite != null)
+            IconButton(
+              onPressed: () => onToggleFavorite!(place, isSaved),
+              icon: Icon(isSaved ? Icons.favorite : Icons.favorite_border),
+              color: isSaved
+                  ? const Color(0xFFFF0033)
+                  : const Color(0xFF53636C),
+              tooltip: isSaved ? 'Remove from saved places' : 'Save place',
+            ),
           const Icon(Icons.chevron_right),
         ],
       ),
@@ -691,7 +775,7 @@ class _AccessibilityScoreBadge extends StatelessWidget {
         border: Border.all(color: const Color(0xFFBFE4C8)),
       ),
       child: Text(
-        place.accessibilityScoreLabel,
+        AccessibilityScore.fromPlace(place).label,
         style: const TextStyle(
           color: Color(0xFF246B3B),
           fontSize: 12,
