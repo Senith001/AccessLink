@@ -58,6 +58,18 @@ class _HomeScreenState extends State<HomeScreen> {
     _openSearchWithFilter(context, null);
   }
 
+  void _openNearbyPlaces(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SearchResultsScreen(
+          initialPlaces: widget.initialPlaces,
+          initialNearbyOnly: true,
+        ),
+      ),
+    );
+  }
+
   void _openSearchWithFilter(BuildContext context, String? filter) {
     Navigator.push(
       context,
@@ -92,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 10),
                     const _PromoBanner(),
                     const SizedBox(height: 10),
-                    const _LocationSelector(),
+                    _LocationSelector(onTap: () => _openNearbyPlaces(context)),
                     const SizedBox(height: 12),
                     const Text(
                       'Quick accessibility',
@@ -121,18 +133,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Text('No nearby places available yet.'),
                         ),
                       )
-                    else
-                      SizedBox(
-                        height: 160,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: _places.length,
-                          separatorBuilder: (context, index) =>
-                              const SizedBox(width: 12),
-                          itemBuilder: (context, index) =>
-                              _NearbyPlaceCard(place: _places[index]),
-                        ),
-                      ),
+                    else ...[
+                      const _NearbySectionTitle(),
+                      const SizedBox(height: 10),
+                      _NearbyPlacesList(places: _places),
+                    ],
                   ],
                 ),
               ),
@@ -274,29 +279,83 @@ class _PromoBanner extends StatelessWidget {
 }
 
 class _LocationSelector extends StatelessWidget {
-  const _LocationSelector();
+  const _LocationSelector({required this.onTap});
+
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 56),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFE4E7EA)),
+    return Semantics(
+      button: true,
+      label: 'Find nearby public places',
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(9),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.location_on_outlined, color: Color(0xFF009BC2)),
-          SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Current Location',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-            ),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 56),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xFFE4E7EA)),
+            borderRadius: BorderRadius.circular(9),
           ),
-          Icon(Icons.keyboard_arrow_down),
-        ],
+          child: const Row(
+            children: [
+              Icon(Icons.my_location_outlined, color: Color(0xFF009BC2)),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Find nearby public places',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                ),
+              ),
+              Icon(Icons.near_me_outlined),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NearbySectionTitle extends StatelessWidget {
+  const _NearbySectionTitle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Expanded(
+          child: Text(
+            'Nearby places',
+            style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
+          ),
+        ),
+        Text(
+          defaultSearchLocation.label,
+          style: TextStyle(fontSize: 12, color: Color(0xFF53636C)),
+        ),
+      ],
+    );
+  }
+}
+
+class _NearbyPlacesList extends StatelessWidget {
+  const _NearbyPlacesList({required this.places});
+
+  final List<Place> places;
+
+  @override
+  Widget build(BuildContext context) {
+    final nearbyPlaces = placesSortedByDistance(places);
+
+    return SizedBox(
+      height: 160,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: nearbyPlaces.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 12),
+        itemBuilder: (context, index) =>
+            _NearbyPlaceCard(place: nearbyPlaces[index]),
       ),
     );
   }

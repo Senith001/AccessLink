@@ -8,6 +8,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:accesslink/models/place.dart';
 import 'package:accesslink/screens/home_screen.dart';
 import 'package:accesslink/screens/search_results_screen.dart';
 
@@ -140,5 +141,42 @@ void main() {
 
     expect(find.text('Accessible Park'), findsOneWidget);
     expect(find.text('Parking Park'), findsNothing);
+  });
+
+  testWidgets('nearby search sorts places by distance', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SearchResultsScreen(
+          initialNearbyOnly: true,
+          initialLocation: defaultSearchLocation,
+          initialPlaces: [
+            {
+              'name': 'Far Library',
+              'category': 'Library',
+              'latitude': 7.2906,
+              'longitude': 80.6337,
+            },
+            {
+              'name': 'Near Hospital',
+              'category': 'Hospital',
+              'latitude': 6.9275,
+              'longitude': 79.8614,
+            },
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nearby places'), findsOneWidget);
+    expect(find.text('Near Hospital'), findsOneWidget);
+    expect(find.text('Far Library'), findsOneWidget);
+    expect(find.textContaining('Hospital .'), findsOneWidget);
+
+    final nearTop = tester.getTopLeft(find.text('Near Hospital')).dy;
+    final farTop = tester.getTopLeft(find.text('Far Library')).dy;
+    expect(nearTop, lessThan(farTop));
   });
 }

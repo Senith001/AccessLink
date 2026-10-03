@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -56,7 +58,114 @@ class Place {
   final double? longitude;
   final Set<String> accessibilityFeatures;
   final IconData icon;
+
+  bool get hasCoordinates => latitude != null && longitude != null;
+
+  Place copyWith({String? distance, String? accessibilityScore}) {
+    return Place(
+      name: name,
+      category: category,
+      address: address,
+      distance: distance ?? this.distance,
+      accessibilityScore: accessibilityScore ?? this.accessibilityScore,
+      latitude: latitude,
+      longitude: longitude,
+      accessibilityFeatures: accessibilityFeatures,
+      icon: icon,
+    );
+  }
+
+  Place withDistanceFrom(PlaceLocation location) {
+    final kilometres = distanceFrom(location);
+    if (kilometres == null) return this;
+
+    return copyWith(distance: formatDistance(kilometres));
+  }
+
+  double? distanceFrom(PlaceLocation location) {
+    final placeLatitude = latitude;
+    final placeLongitude = longitude;
+    if (placeLatitude == null || placeLongitude == null) return null;
+
+    return distanceBetweenInKm(
+      location.latitude,
+      location.longitude,
+      placeLatitude,
+      placeLongitude,
+    );
+  }
 }
+
+class PlaceLocation {
+  const PlaceLocation({
+    required this.label,
+    required this.latitude,
+    required this.longitude,
+  });
+
+  final String label;
+  final double latitude;
+  final double longitude;
+}
+
+const defaultSearchLocation = PlaceLocation(
+  label: 'Current Location',
+  latitude: 6.9271,
+  longitude: 79.8612,
+);
+
+List<Place> placesSortedByDistance(
+  Iterable<Place> places, {
+  PlaceLocation from = defaultSearchLocation,
+}) {
+  final sortedPlaces = places
+      .map((place) => place.withDistanceFrom(from))
+      .toList();
+  sortedPlaces.sort((first, second) {
+    final firstDistance = first.distanceFrom(from);
+    final secondDistance = second.distanceFrom(from);
+    if (firstDistance == null && secondDistance == null) return 0;
+    if (firstDistance == null) return 1;
+    if (secondDistance == null) return -1;
+    return firstDistance.compareTo(secondDistance);
+  });
+  return sortedPlaces;
+}
+
+double distanceBetweenInKm(
+  double startLatitude,
+  double startLongitude,
+  double endLatitude,
+  double endLongitude,
+) {
+  const earthRadiusKm = 6371.0;
+  final latitudeDistance = _degreesToRadians(endLatitude - startLatitude);
+  final longitudeDistance = _degreesToRadians(endLongitude - startLongitude);
+  final startLatitudeRadians = _degreesToRadians(startLatitude);
+  final endLatitudeRadians = _degreesToRadians(endLatitude);
+
+  final haversine =
+      math.pow(math.sin(latitudeDistance / 2), 2) +
+      math.cos(startLatitudeRadians) *
+          math.cos(endLatitudeRadians) *
+          math.pow(math.sin(longitudeDistance / 2), 2);
+  final centralAngle =
+      2 * math.atan2(math.sqrt(haversine), math.sqrt(1 - haversine));
+
+  return earthRadiusKm * centralAngle;
+}
+
+String formatDistance(double kilometres) {
+  if (kilometres < 1) {
+    return '${(kilometres * 1000).round()} m away';
+  }
+  if (kilometres < 10) {
+    return '${kilometres.toStringAsFixed(1)} km away';
+  }
+  return '${kilometres.round()} km away';
+}
+
+double _degreesToRadians(double degrees) => degrees * math.pi / 180;
 
 Set<String> _readAccessibilityFeatures(Map<String, dynamic> data) {
   final rawFeatures =

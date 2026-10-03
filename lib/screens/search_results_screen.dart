@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../core/database/firestore_collections.dart';
 import '../models/place.dart';
+import '../services/location_service.dart';
 
 class SearchResultsScreen extends StatefulWidget {
   const SearchResultsScreen({
@@ -10,11 +11,17 @@ class SearchResultsScreen extends StatefulWidget {
     this.initialQuery = '',
     this.initialPlaces = const [],
     this.initialFilter,
+    this.initialNearbyOnly = false,
+    this.initialLocation,
+    this.locationService = const LocationService(),
   });
 
   final String initialQuery;
   final List<Map<String, dynamic>> initialPlaces;
   final String? initialFilter;
+  final bool initialNearbyOnly;
+  final PlaceLocation? initialLocation;
+  final LocationService locationService;
 
   @override
   State<SearchResultsScreen> createState() => _SearchResultsScreenState();
@@ -24,8 +31,12 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   late final TextEditingController _searchController;
   List<Place> _places = const [];
   bool _isLoading = true;
+  bool _isLoadingLocation = false;
   String? _loadError;
+  String? _locationError;
+  PlaceLocation? _nearbyLocation;
   final Set<String> _selectedFilters = {};
+  late bool _nearbyOnly;
 
   static const _filters = {
     'wheelchairaccessible': ('Wheelchair', Icons.accessible_forward),
@@ -49,7 +60,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
 
   List<Place> get _results {
     final query = _searchController.text.trim().toLowerCase();
-    return _places.where((place) {
+    final matches = _places.where((place) {
       final matchesText =
           query.isEmpty ||
           place.name.toLowerCase().contains(query) ||
@@ -60,12 +71,23 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       );
       return matchesText && matchesFilters;
     }).toList();
+
+    if (_nearbyOnly) {
+      return placesSortedByDistance(
+        matches,
+        from: _nearbyLocation ?? defaultSearchLocation,
+      );
+    }
+
+    return matches;
   }
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController(text: widget.initialQuery);
+    _nearbyOnly = widget.initialNearbyOnly;
+    _nearbyLocation = widget.initialLocation;
     if (widget.initialFilter != null) {
       _selectedFilters.add(widget.initialFilter!);
     }
@@ -77,6 +99,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       _isLoading = false;
     } else {
       _loadPlaces();
+    }
+    if (_nearbyOnly && _nearbyLocation == null) {
+      _requestCurrentLocation();
     }
   }
 
@@ -153,13 +178,17 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                       filters: _filters,
                       quickFilters: _quickFilters,
                       selectedFilters: _selectedFilters,
+                      nearbyOnly: _nearbyOnly,
                       onChanged: _toggleFilter,
+                      onNearbyChanged: _toggleNearbyOnly,
                       onOpenFilterList: _openFilterList,
                     ),
                     const SizedBox(height: 22),
-                    if (query.isNotEmpty || _selectedFilters.isNotEmpty) ...[
-                      const Text(
-                        'Search results',
+                    if (query.isNotEmpty ||
+                        _selectedFilters.isNotEmpty ||
+                        _nearbyOnly) ...[
+                      Text(
+                        _nearbyOnly ? 'Nearby places' : 'Search results',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -182,10 +211,19 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
+    if (_nearbyOnly && _isLoadingLocation) {
+      return const Center(child: CircularProgressIndicator());
+    }
     if (_loadError != null) {
       return _LoadError(message: _loadError!, onRetry: _retry);
     }
-    if (query.isEmpty && _selectedFilters.isEmpty) {
+    if (_nearbyOnly && _locationError != null) {
+      return _LoadError(
+        message: _locationError!,
+        onRetry: _requestCurrentLocation,
+      );
+    }
+    if (query.isEmpty && _selectedFilters.isEmpty && !_nearbyOnly) {
       return const _SearchPrompt();
     }
     if (_results.isEmpty) {
@@ -208,6 +246,33 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       if (!_selectedFilters.add(filter)) {
         _selectedFilters.remove(filter);
       }
+    });
+  }
+
+  void _toggleNearbyOnly(bool selected) {
+    setState(() {
+      _nearbyOnly = selected;
+      _locationError = null;
+    });
+
+    if (selected && _nearbyLocation == null) {
+      _requestCurrentLocation();
+    }
+  }
+
+  Future<void> _requestCurrentLocation() async {
+    setState(() {
+      _isLoadingLocation = true;
+      _locationError = null;
+    });
+
+    final result = await widget.locationService.currentLocation();
+    if (!mounted) return;
+
+    setState(() {
+      _isLoadingLocation = false;
+      _nearbyLocation = result.location;
+      _locationError = result.errorMessage;
     });
   }
 
@@ -296,14 +361,18 @@ class _FilterControls extends StatelessWidget {
     required this.filters,
     required this.quickFilters,
     required this.selectedFilters,
+    required this.nearbyOnly,
     required this.onChanged,
+    required this.onNearbyChanged,
     required this.onOpenFilterList,
   });
 
   final Map<String, (String, IconData)> filters;
   final List<String> quickFilters;
   final Set<String> selectedFilters;
+  final bool nearbyOnly;
   final ValueChanged<String> onChanged;
+  final ValueChanged<bool> onNearbyChanged;
   final VoidCallback onOpenFilterList;
 
   @override
@@ -334,10 +403,23 @@ class _FilterControls extends StatelessWidget {
           height: 40,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            itemCount: quickFilters.length,
+            itemCount: quickFilters.length + 1,
             separatorBuilder: (context, index) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
-              final key = quickFilters[index];
+              if (index == 0) {
+                return FilterChip(
+                  avatar: const Icon(Icons.near_me_outlined, size: 17),
+                  label: const Text('Nearby'),
+                  selected: nearbyOnly,
+                  onSelected: onNearbyChanged,
+                  selectedColor: const Color(0xFFBDE8F0),
+                  checkmarkColor: const Color(0xFF2C4552),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                );
+              }
+
+              final key = quickFilters[index - 1];
               final filter = filters[key]!;
               return FilterChip(
                 avatar: Icon(filter.$2, size: 17),
