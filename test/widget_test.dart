@@ -32,7 +32,7 @@ void main() {
 
     await tester.tap(find.text('Search accessible places'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'hospital');
+    await tester.enterText(find.byType(TextField).first, 'hospital');
     await tester.pump();
     await tester.scrollUntilVisible(
       find.text('City Hospital'),
@@ -59,7 +59,7 @@ void main() {
 
     await tester.tap(find.text('Search accessible places'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'library');
+    await tester.enterText(find.byType(TextField).first, 'library');
     await tester.pump();
     await tester.scrollUntilVisible(
       find.text('No accessible places found'),
@@ -178,5 +178,37 @@ void main() {
     final nearTop = tester.getTopLeft(find.text('Near Hospital')).dy;
     final farTop = tester.getTopLeft(find.text('Far Library')).dy;
     expect(nearTop, lessThan(farTop));
+  });
+
+  testWidgets('search filters places by district or city', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SearchResultsScreen(
+          initialPlaces: [
+            {
+              'name': 'Colombo Hospital',
+              'category': 'Hospital',
+              'city': 'Colombo',
+              'district': 'Colombo',
+            },
+            {
+              'name': 'Kandy Park',
+              'category': 'Park',
+              'city': 'Kandy',
+              'district': 'Kandy',
+            },
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(1), 'Kandy');
+    await tester.pump();
+
+    expect(find.text('Kandy Park'), findsOneWidget);
+    expect(find.text('Colombo Hospital'), findsNothing);
   });
 }

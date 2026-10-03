@@ -29,6 +29,7 @@ class SearchResultsScreen extends StatefulWidget {
 
 class _SearchResultsScreenState extends State<SearchResultsScreen> {
   late final TextEditingController _searchController;
+  late final TextEditingController _locationController;
   List<Place> _places = const [];
   bool _isLoading = true;
   bool _isLoadingLocation = false;
@@ -60,16 +61,22 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
 
   List<Place> get _results {
     final query = _searchController.text.trim().toLowerCase();
+    final locationQuery = _locationController.text.trim().toLowerCase();
     final matches = _places.where((place) {
       final matchesText =
           query.isEmpty ||
           place.name.toLowerCase().contains(query) ||
           place.category.toLowerCase().contains(query) ||
           place.address.toLowerCase().contains(query);
+      final matchesLocation =
+          locationQuery.isEmpty ||
+          place.city.toLowerCase().contains(locationQuery) ||
+          place.district.toLowerCase().contains(locationQuery) ||
+          place.address.toLowerCase().contains(locationQuery);
       final matchesFilters = _selectedFilters.every(
         place.accessibilityFeatures.contains,
       );
-      return matchesText && matchesFilters;
+      return matchesText && matchesLocation && matchesFilters;
     }).toList();
 
     if (_nearbyOnly) {
@@ -86,6 +93,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   void initState() {
     super.initState();
     _searchController = TextEditingController(text: widget.initialQuery);
+    _locationController = TextEditingController();
     _nearbyOnly = widget.initialNearbyOnly;
     _nearbyLocation = widget.initialLocation;
     if (widget.initialFilter != null) {
@@ -139,12 +147,14 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _locationController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final query = _searchController.text.trim();
+    final locationQuery = _locationController.text.trim();
     return Scaffold(
       backgroundColor: const Color(0xFF62A4C6),
       body: SafeArea(
@@ -174,6 +184,22 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                       decoration: _searchDecoration(),
                     ),
                     const SizedBox(height: 12),
+                    TextField(
+                      controller: _locationController,
+                      onChanged: (_) => setState(() {}),
+                      onSubmitted: (_) => setState(() {}),
+                      textInputAction: TextInputAction.search,
+                      decoration: _locationSearchDecoration(),
+                    ),
+                    if (_locationOptions.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      _LocationQuickFilters(
+                        locations: _locationOptions,
+                        selectedLocation: locationQuery,
+                        onSelected: _selectLocation,
+                      ),
+                    ],
+                    const SizedBox(height: 12),
                     _FilterControls(
                       filters: _filters,
                       quickFilters: _quickFilters,
@@ -185,6 +211,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                     ),
                     const SizedBox(height: 22),
                     if (query.isNotEmpty ||
+                        locationQuery.isNotEmpty ||
                         _selectedFilters.isNotEmpty ||
                         _nearbyOnly) ...[
                       Text(
@@ -196,7 +223,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                       ),
                       const SizedBox(height: 12),
                     ],
-                    Expanded(child: _content(query)),
+                    Expanded(child: _content(query, locationQuery)),
                   ],
                 ),
               ),
@@ -207,7 +234,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     );
   }
 
-  Widget _content(String query) {
+  Widget _content(String query, String locationQuery) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -223,7 +250,10 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         onRetry: _requestCurrentLocation,
       );
     }
-    if (query.isEmpty && _selectedFilters.isEmpty && !_nearbyOnly) {
+    if (query.isEmpty &&
+        locationQuery.isEmpty &&
+        _selectedFilters.isEmpty &&
+        !_nearbyOnly) {
       return const _SearchPrompt();
     }
     if (_results.isEmpty) {
@@ -238,7 +268,22 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
 
   void _clearSearch() {
     _searchController.clear();
+    _locationController.clear();
     setState(() {});
+  }
+
+  void _selectLocation(String location) {
+    _locationController.text = location;
+    setState(() {});
+  }
+
+  List<String> get _locationOptions {
+    final locations = <String>{};
+    for (final place in _places) {
+      if (place.city.isNotEmpty) locations.add(place.city);
+      if (place.district.isNotEmpty) locations.add(place.district);
+    }
+    return (locations.toList()..sort()).take(8).toList();
   }
 
   void _toggleFilter(String filter) {
@@ -439,10 +484,62 @@ class _FilterControls extends StatelessWidget {
   }
 }
 
+class _LocationQuickFilters extends StatelessWidget {
+  const _LocationQuickFilters({
+    required this.locations,
+    required this.selectedLocation,
+    required this.onSelected,
+  });
+
+  final List<String> locations;
+  final String selectedLocation;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 38,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: locations.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final location = locations[index];
+          return ChoiceChip(
+            avatar: const Icon(Icons.location_city_outlined, size: 16),
+            label: Text(location),
+            selected: selectedLocation == location,
+            onSelected: (_) => onSelected(location),
+            selectedColor: const Color(0xFFBDE8F0),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          );
+        },
+      ),
+    );
+  }
+}
+
 InputDecoration _searchDecoration() => InputDecoration(
   hintText: 'Search accessible places',
   prefixIcon: const Icon(Icons.search, color: Color(0xFF009BC2)),
   suffixIcon: const Icon(Icons.clear),
+  enabledBorder: OutlineInputBorder(
+    borderSide: const BorderSide(color: Color(0xFFE4E7EA)),
+    borderRadius: BorderRadius.circular(9),
+  ),
+  focusedBorder: OutlineInputBorder(
+    borderSide: const BorderSide(color: Color(0xFF62A4C6), width: 2),
+    borderRadius: BorderRadius.circular(9),
+  ),
+);
+
+InputDecoration _locationSearchDecoration() => InputDecoration(
+  hintText: 'Enter district or city',
+  prefixIcon: const Icon(
+    Icons.location_city_outlined,
+    color: Color(0xFF009BC2),
+  ),
   enabledBorder: OutlineInputBorder(
     borderSide: const BorderSide(color: Color(0xFFE4E7EA)),
     borderRadius: BorderRadius.circular(9),
@@ -483,8 +580,11 @@ class _ResultTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text('${place.category} . ${place.distance}'),
-                if (place.address.isNotEmpty)
-                  Text(place.address, style: const TextStyle(fontSize: 12)),
+                if (place.locationLabel.isNotEmpty)
+                  Text(
+                    place.locationLabel,
+                    style: const TextStyle(fontSize: 12),
+                  ),
               ],
             ),
           ),
@@ -500,7 +600,7 @@ class _SearchPrompt extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const Center(
     child: Text(
-      'Enter a place name, category, or address above.',
+      'Enter a place name, category, district, or city above.',
       textAlign: TextAlign.center,
     ),
   );

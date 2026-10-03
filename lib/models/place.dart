@@ -8,6 +8,8 @@ class Place {
     required this.name,
     required this.category,
     this.address = '',
+    this.city = '',
+    this.district = '',
     this.distance = 'Near you',
     this.accessibilityScore = 'Not rated',
     this.latitude,
@@ -42,6 +44,8 @@ class Place {
       name: name.trim(),
       category: category,
       address: data['address'] as String? ?? data['city'] as String? ?? '',
+      city: data['city'] as String? ?? '',
+      district: data['district'] as String? ?? '',
       latitude: latitude?.toDouble(),
       longitude: longitude?.toDouble(),
       accessibilityFeatures: _readAccessibilityFeatures(data),
@@ -52,6 +56,8 @@ class Place {
   final String name;
   final String category;
   final String address;
+  final String city;
+  final String district;
   final String distance;
   final String accessibilityScore;
   final double? latitude;
@@ -61,11 +67,20 @@ class Place {
 
   bool get hasCoordinates => latitude != null && longitude != null;
 
+  String get locationLabel {
+    if (city.isNotEmpty && district.isNotEmpty) return '$city, $district';
+    if (city.isNotEmpty) return city;
+    if (district.isNotEmpty) return district;
+    return address;
+  }
+
   Place copyWith({String? distance, String? accessibilityScore}) {
     return Place(
       name: name,
       category: category,
       address: address,
+      city: city,
+      district: district,
       distance: distance ?? this.distance,
       accessibilityScore: accessibilityScore ?? this.accessibilityScore,
       latitude: latitude,
