@@ -37,6 +37,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   String? _locationError;
   PlaceLocation? _nearbyLocation;
   final Set<String> _selectedFilters = {};
+  String? _selectedCategory;
   late bool _nearbyOnly;
 
   static const _filters = {
@@ -73,10 +74,15 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
           place.city.toLowerCase().contains(locationQuery) ||
           place.district.toLowerCase().contains(locationQuery) ||
           place.address.toLowerCase().contains(locationQuery);
+      final matchesCategory =
+          _selectedCategory == null || place.category == _selectedCategory;
       final matchesFilters = _selectedFilters.every(
         place.accessibilityFeatures.contains,
       );
-      return matchesText && matchesLocation && matchesFilters;
+      return matchesText &&
+          matchesLocation &&
+          matchesCategory &&
+          matchesFilters;
     }).toList();
 
     if (_nearbyOnly) {
@@ -200,6 +206,14 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                       ),
                     ],
                     const SizedBox(height: 12),
+                    if (_categoryOptions.isNotEmpty) ...[
+                      _CategoryFilterControls(
+                        categories: _categoryOptions,
+                        selectedCategory: _selectedCategory,
+                        onSelected: _selectCategory,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     _FilterControls(
                       filters: _filters,
                       quickFilters: _quickFilters,
@@ -212,6 +226,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                     const SizedBox(height: 22),
                     if (query.isNotEmpty ||
                         locationQuery.isNotEmpty ||
+                        _selectedCategory != null ||
                         _selectedFilters.isNotEmpty ||
                         _nearbyOnly) ...[
                       Text(
@@ -252,6 +267,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     }
     if (query.isEmpty &&
         locationQuery.isEmpty &&
+        _selectedCategory == null &&
         _selectedFilters.isEmpty &&
         !_nearbyOnly) {
       return const _SearchPrompt();
@@ -269,7 +285,14 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   void _clearSearch() {
     _searchController.clear();
     _locationController.clear();
+    _selectedCategory = null;
     setState(() {});
+  }
+
+  void _selectCategory(String category) {
+    setState(() {
+      _selectedCategory = _selectedCategory == category ? null : category;
+    });
   }
 
   void _selectLocation(String location) {
@@ -284,6 +307,14 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       if (place.district.isNotEmpty) locations.add(place.district);
     }
     return (locations.toList()..sort()).take(8).toList();
+  }
+
+  List<String> get _categoryOptions {
+    final categories = {
+      for (final place in _places)
+        if (place.category.trim().isNotEmpty) place.category.trim(),
+    };
+    return (categories.toList()..sort()).take(8).toList();
   }
 
   void _toggleFilter(String filter) {
@@ -520,6 +551,52 @@ class _LocationQuickFilters extends StatelessWidget {
   }
 }
 
+class _CategoryFilterControls extends StatelessWidget {
+  const _CategoryFilterControls({
+    required this.categories,
+    required this.selectedCategory,
+    required this.onSelected,
+  });
+
+  final List<String> categories;
+  final String? selectedCategory;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Category',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 40,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: categories.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final category = categories[index];
+              return ChoiceChip(
+                avatar: Icon(iconForCategory(category), size: 17),
+                label: Text(category),
+                selected: selectedCategory == category,
+                onSelected: (_) => onSelected(category),
+                selectedColor: const Color(0xFFBDE8F0),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 InputDecoration _searchDecoration() => InputDecoration(
   hintText: 'Search accessible places',
   prefixIcon: const Icon(Icons.search, color: Color(0xFF009BC2)),
@@ -612,28 +689,30 @@ class _NoResults extends StatelessWidget {
   final VoidCallback onClear;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(Icons.search_off, size: 46, color: Color(0xFF62A4C6)),
-        const SizedBox(height: 14),
-        const Text(
-          'No accessible places found',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'We could not find a public place matching "$query".',
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 18),
-        OutlinedButton.icon(
-          onPressed: onClear,
-          icon: const Icon(Icons.refresh),
-          label: const Text('Clear search'),
-        ),
-      ],
+  Widget build(BuildContext context) => SingleChildScrollView(
+    child: Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.search_off, size: 46, color: Color(0xFF62A4C6)),
+          const SizedBox(height: 14),
+          const Text(
+            'No accessible places found',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'We could not find a public place matching "$query".',
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 18),
+          OutlinedButton.icon(
+            onPressed: onClear,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Clear search'),
+          ),
+        ],
+      ),
     ),
   );
 }
@@ -644,25 +723,27 @@ class _LoadError extends StatelessWidget {
   final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(Icons.cloud_off, size: 48, color: Color(0xFFFF0033)),
-        const SizedBox(height: 14),
-        const Text(
-          'Places could not be loaded',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 6),
-        Text(message, textAlign: TextAlign.center),
-        const SizedBox(height: 18),
-        OutlinedButton.icon(
-          onPressed: onRetry,
-          icon: const Icon(Icons.refresh),
-          label: const Text('Try again'),
-        ),
-      ],
+  Widget build(BuildContext context) => SingleChildScrollView(
+    child: Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.cloud_off, size: 48, color: Color(0xFFFF0033)),
+          const SizedBox(height: 14),
+          const Text(
+            'Places could not be loaded',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          Text(message, textAlign: TextAlign.center),
+          const SizedBox(height: 18),
+          OutlinedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Try again'),
+          ),
+        ],
+      ),
     ),
   );
 }

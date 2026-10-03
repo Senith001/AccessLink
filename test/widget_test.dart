@@ -211,4 +211,26 @@ void main() {
     expect(find.text('Kandy Park'), findsOneWidget);
     expect(find.text('Colombo Hospital'), findsNothing);
   });
+
+  testWidgets('search filters places by category', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SearchResultsScreen(
+          initialPlaces: [
+            {'name': 'City Hospital', 'category': 'Hospital'},
+            {'name': 'Lake Restaurant', 'category': 'Restaurant'},
+            {'name': 'Central Bank', 'category': 'Bank'},
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Restaurant'));
+    await tester.pump();
+
+    expect(find.text('Lake Restaurant'), findsOneWidget);
+    expect(find.text('City Hospital'), findsNothing);
+    expect(find.text('Central Bank'), findsNothing);
+  });
 }

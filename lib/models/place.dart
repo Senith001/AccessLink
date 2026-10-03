@@ -242,6 +242,8 @@ IconData iconForCategory(String category) {
       return Icons.park;
     case 'bank':
       return Icons.account_balance;
+    case 'restaurant':
+      return Icons.restaurant;
     case 'library':
       return Icons.local_library;
     default:
