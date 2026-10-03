@@ -67,6 +67,18 @@ class Place {
 
   bool get hasCoordinates => latitude != null && longitude != null;
 
+  bool get hasAccessibilityScore => accessibilityFeatures.isNotEmpty;
+
+  int get accessibilityScorePercent {
+    if (!hasAccessibilityScore) return 0;
+    return ((accessibilityFeatures.length / accessibilityFeatureNames.length) *
+            100)
+        .round()
+        .clamp(0, 100);
+  }
+
+  String get accessibilityScoreLabel => 'Score $accessibilityScorePercent%';
+
   String get locationLabel {
     if (city.isNotEmpty && district.isNotEmpty) return '$city, $district';
     if (city.isNotEmpty) return city;

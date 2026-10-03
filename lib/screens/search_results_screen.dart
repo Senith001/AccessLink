@@ -657,6 +657,10 @@ class _ResultTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text('${place.category} . ${place.distance}'),
+                if (place.hasAccessibilityScore) ...[
+                  const SizedBox(height: 6),
+                  _AccessibilityScoreBadge(place: place),
+                ],
                 if (place.locationLabel.isNotEmpty)
                   Text(
                     place.locationLabel,
@@ -667,6 +671,32 @@ class _ResultTile extends StatelessWidget {
           ),
           const Icon(Icons.chevron_right),
         ],
+      ),
+    );
+  }
+}
+
+class _AccessibilityScoreBadge extends StatelessWidget {
+  const _AccessibilityScoreBadge({required this.place});
+
+  final Place place;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF7EF),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFBFE4C8)),
+      ),
+      child: Text(
+        place.accessibilityScoreLabel,
+        style: const TextStyle(
+          color: Color(0xFF246B3B),
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }

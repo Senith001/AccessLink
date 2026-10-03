@@ -233,4 +233,30 @@ void main() {
     expect(find.text('City Hospital'), findsNothing);
     expect(find.text('Central Bank'), findsNothing);
   });
+
+  testWidgets('eligible places display accessibility score', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SearchResultsScreen(
+          initialQuery: 'hospital',
+          initialPlaces: [
+            {
+              'name': 'City Hospital',
+              'category': 'Hospital',
+              'accessibility': {
+                'wheelchairAccessible': {'available': true},
+                'accessibleParking': {'available': true},
+              },
+            },
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('City Hospital'), findsOneWidget);
+    expect(find.text('Score 29%'), findsOneWidget);
+  });
 }

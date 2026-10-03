@@ -475,7 +475,39 @@ class _NearbyPlaceCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 12),
             ),
+            if (place.hasAccessibilityScore) ...[
+              const SizedBox(height: 6),
+              _HomeScoreBadge(place: place),
+            ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeScoreBadge extends StatelessWidget {
+  const _HomeScoreBadge({required this.place});
+
+  final Place place;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF7EF),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFBFE4C8)),
+      ),
+      child: Text(
+        place.accessibilityScoreLabel,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: Color(0xFF246B3B),
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
