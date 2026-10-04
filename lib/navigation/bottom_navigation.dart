@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../screens/map_screen.dart';
+import '../screens/home_screen.dart' as discovery;
+import '../screens/saved_places_screen.dart';
 import '../accessibility/voice_guidance.dart';
-import 'home_screen.dart';
 import 'settings_screen.dart';
 
 class BottomNavigationScreen extends StatefulWidget {
@@ -16,8 +17,9 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
   int _selectedIndex = 0;
 
   static const List<Widget> _screens = [
-    HomeScreen(),
+    discovery.HomeScreen(),
     MapScreen(),
+    SavedPlacesScreen(),
     SettingsScreen(),
   ];
 
@@ -42,7 +44,8 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
               children: [
                 _navigationItem(0, Icons.home, 'Home'),
                 _navigationItem(1, Icons.map, 'Map'),
-                _navigationItem(2, Icons.settings, 'Settings'),
+                _navigationItem(2, Icons.favorite, 'Saved'),
+                _navigationItem(3, Icons.settings, 'Settings'),
               ],
             ),
           ),

@@ -5,14 +5,276 @@
 // gestures. You can also use WidgetTester to find child widgets in the widget
 // tree, read text, and verify that the values of widget properties are correct.
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:accesslink/accessibility/accessibility_settings.dart';
 import 'package:accesslink/main.dart';
+import 'package:accesslink/models/search_place.dart';
+import 'package:accesslink/navigation/bottom_navigation.dart';
+import 'package:accesslink/screens/home_screen.dart';
+import 'package:accesslink/screens/search_results_screen.dart';
 
 void main() {
-  testWidgets('AccessLink app smoke test', (WidgetTester tester) async {
-    await tester.pumpWidget(const AccessLinkApp());
+  testWidgets('home screen renders', (WidgetTester tester) async {
+    await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
 
-    expect(find.text('AccessLink'), findsOneWidget);
+    expect(find.text('Accessibility map'), findsOneWidget);
+  });
+
+  testWidgets('home opens saved places screen', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      AccessLinkApp(
+        settings: AccessibilitySettings(),
+        home: const BottomNavigationScreen(),
+      ),
+    );
+
+    await tester.tap(find.text('Saved'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Saved places'), findsOneWidget);
+    expect(find.text('No saved places yet.'), findsOneWidget);
+  });
+
+  testWidgets('search displays matching places', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: HomeScreen(
+          initialPlaces: [
+            {'name': 'City Hospital', 'category': 'Hospital'},
+          ],
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Search accessible places'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'hospital');
+    await tester.pump();
+    await tester.scrollUntilVisible(
+      find.text('City Hospital'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('City Hospital'), findsOneWidget);
+    expect(find.text('Green Park'), findsNothing);
+  });
+
+  testWidgets('search displays a no-results message', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: HomeScreen(
+          initialPlaces: [
+            {'name': 'Central Park', 'category': 'Park'},
+          ],
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Search accessible places'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'library');
+    await tester.pump();
+    await tester.scrollUntilVisible(
+      find.text('No accessible places found'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('No accessible places found'), findsOneWidget);
+  });
+
+  testWidgets('search results screen displays matching places', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SearchResultsScreen(
+          initialQuery: 'hospital',
+          initialPlaces: [
+            {'name': 'City Hospital', 'category': 'Hospital'},
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Search results'), findsOneWidget);
+    expect(find.text('City Hospital'), findsOneWidget);
+  });
+
+  testWidgets('search results screen handles no matches', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SearchResultsScreen(
+          initialQuery: 'cinema',
+          initialPlaces: [
+            {'name': 'Central Park', 'category': 'Park'},
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('No accessible places found'), findsOneWidget);
+  });
+
+  testWidgets('accessibility filter shows only matching places', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SearchResultsScreen(
+          initialPlaces: [
+            {
+              'name': 'Accessible Park',
+              'category': 'Park',
+              'accessibility': {
+                'wheelchairAccessible': {'available': true},
+              },
+            },
+            {
+              'name': 'Parking Park',
+              'category': 'Park',
+              'accessibility': {
+                'accessibleParking': {'available': true},
+              },
+            },
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final wheelchairFilter = find.text('Wheelchair');
+    await tester.ensureVisible(wheelchairFilter);
+    await tester.tap(wheelchairFilter);
+    await tester.pump();
+
+    expect(find.text('Accessible Park'), findsOneWidget);
+    expect(find.text('Parking Park'), findsNothing);
+  });
+
+  testWidgets('nearby search sorts places by distance', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SearchResultsScreen(
+          initialNearbyOnly: true,
+          initialLocation: defaultSearchLocation,
+          initialPlaces: [
+            {
+              'name': 'Far Library',
+              'category': 'Library',
+              'latitude': 7.2906,
+              'longitude': 80.6337,
+            },
+            {
+              'name': 'Near Hospital',
+              'category': 'Hospital',
+              'latitude': 6.9275,
+              'longitude': 79.8614,
+            },
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nearby places'), findsOneWidget);
+    expect(find.text('Near Hospital'), findsOneWidget);
+    expect(find.text('Far Library'), findsOneWidget);
+    expect(find.textContaining('Hospital .'), findsOneWidget);
+
+    final nearTop = tester.getTopLeft(find.text('Near Hospital')).dy;
+    final farTop = tester.getTopLeft(find.text('Far Library')).dy;
+    expect(nearTop, lessThan(farTop));
+  });
+
+  testWidgets('search filters places by district or city', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SearchResultsScreen(
+          initialPlaces: [
+            {
+              'name': 'Colombo Hospital',
+              'category': 'Hospital',
+              'city': 'Colombo',
+              'district': 'Colombo',
+            },
+            {
+              'name': 'Kandy Park',
+              'category': 'Park',
+              'city': 'Kandy',
+              'district': 'Kandy',
+            },
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(1), 'Kandy');
+    await tester.pump();
+
+    expect(find.text('Kandy Park'), findsOneWidget);
+    expect(find.text('Colombo Hospital'), findsNothing);
+  });
+
+  testWidgets('search filters places by category', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SearchResultsScreen(
+          initialPlaces: [
+            {'name': 'City Hospital', 'category': 'Hospital'},
+            {'name': 'Lake Restaurant', 'category': 'Restaurant'},
+            {'name': 'Central Bank', 'category': 'Bank'},
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Restaurant'));
+    await tester.pump();
+
+    expect(find.text('Lake Restaurant'), findsOneWidget);
+    expect(find.text('City Hospital'), findsNothing);
+    expect(find.text('Central Bank'), findsNothing);
+  });
+
+  testWidgets('eligible places display accessibility score', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SearchResultsScreen(
+          initialQuery: 'hospital',
+          initialPlaces: [
+            {
+              'name': 'City Hospital',
+              'category': 'Hospital',
+              'accessibility': {
+                'wheelchairAccessible': {'available': true},
+                'accessibleParking': {'available': true},
+              },
+            },
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('City Hospital'), findsOneWidget);
+    expect(find.text('Score 29%'), findsOneWidget);
   });
 }
