@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'place.dart';
+import 'search_place.dart';
 
 class SavedPlace {
   const SavedPlace({
@@ -15,7 +15,7 @@ class SavedPlace {
     this.accessibilityFeatures = const {},
   });
 
-  factory SavedPlace.fromPlace(Place place) {
+  factory SavedPlace.fromPlace(SearchPlace place) {
     return SavedPlace(
       id: place.id,
       name: place.name,
@@ -30,7 +30,11 @@ class SavedPlace {
   }
 
   static SavedPlace? fromData(Map<String, dynamic> data, {String? id}) {
-    final place = Place.fromData(data, id: id);
+    final place = SearchPlace.fromData({
+      ...data,
+      if (data['name'] == null && data['placeName'] != null)
+        'name': data['placeName'],
+    }, id: id);
     if (place == null) return null;
     return SavedPlace.fromPlace(place);
   }
@@ -45,7 +49,7 @@ class SavedPlace {
   final double? longitude;
   final Set<String> accessibilityFeatures;
 
-  IconData get icon => iconForCategory(category);
+  IconData get icon => iconForSearchCategory(category);
 
   String get locationLabel {
     if (city.isNotEmpty && district.isNotEmpty) return '$city, $district';
@@ -65,6 +69,8 @@ class SavedPlace {
       'latitude': latitude,
       'longitude': longitude,
       'accessibilityFeatures': accessibilityFeatures.toList()..sort(),
+      'placeId': id,
+      'placeName': name,
     };
   }
 }

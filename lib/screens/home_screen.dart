@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../core/database/firestore_collections.dart';
 import '../models/accessibility_score.dart';
-import '../models/place.dart';
-import 'saved_places_screen.dart';
+import '../models/search_place.dart';
 import 'search_results_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -17,7 +16,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  List<Place> _places = const [];
+  List<SearchPlace> _places = const [];
   bool _isLoadingPlaces = true;
 
   @override
@@ -30,8 +29,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (widget.initialPlaces.isNotEmpty) {
       setState(() {
         _places = widget.initialPlaces
-            .map(Place.fromData)
-            .whereType<Place>()
+            .map(SearchPlace.fromData)
+            .whereType<SearchPlace>()
             .toList();
         _isLoadingPlaces = false;
       });
@@ -45,8 +44,8 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() {
         _places = snapshot.docs
-            .map(Place.fromFirestore)
-            .whereType<Place>()
+            .map(SearchPlace.fromFirestore)
+            .whereType<SearchPlace>()
             .toList();
         _isLoadingPlaces = false;
       });
@@ -83,13 +82,6 @@ class _HomeScreenState extends State<HomeScreen> {
           enableFavorites: true,
         ),
       ),
-    );
-  }
-
-  void _openSavedPlaces(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const SavedPlacesScreen()),
     );
   }
 
@@ -153,7 +145,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            _HomeBottomBar(onSavedPlaces: () => _openSavedPlaces(context)),
           ],
         ),
       ),
@@ -353,11 +344,11 @@ class _NearbySectionTitle extends StatelessWidget {
 class _NearbyPlacesList extends StatelessWidget {
   const _NearbyPlacesList({required this.places});
 
-  final List<Place> places;
+  final List<SearchPlace> places;
 
   @override
   Widget build(BuildContext context) {
-    final nearbyPlaces = placesSortedByDistance(places);
+    final nearbyPlaces = searchPlacesSortedByDistance(places);
 
     return SizedBox(
       height: 160,
@@ -448,7 +439,7 @@ class _MapPreview extends StatelessWidget {
 class _NearbyPlaceCard extends StatelessWidget {
   const _NearbyPlaceCard({required this.place});
 
-  final Place place;
+  final SearchPlace place;
 
   @override
   Widget build(BuildContext context) {
@@ -500,7 +491,7 @@ class _NearbyPlaceCard extends StatelessWidget {
 class _HomeScoreBadge extends StatelessWidget {
   const _HomeScoreBadge({required this.place});
 
-  final Place place;
+  final SearchPlace place;
 
   @override
   Widget build(BuildContext context) {
@@ -575,79 +566,4 @@ class _MapPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _HomeBottomBar extends StatelessWidget {
-  const _HomeBottomBar({required this.onSavedPlaces});
-
-  final VoidCallback onSavedPlaces;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 62,
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const _BottomBarItem(
-            icon: Icons.home_outlined,
-            label: 'Home',
-            active: true,
-          ),
-          const _BottomBarItem(icon: Icons.accessibility_new, label: 'Access'),
-          _BottomBarItem(
-            icon: Icons.favorite_border,
-            label: 'Saved',
-            onTap: onSavedPlaces,
-          ),
-          const _BottomBarItem(icon: Icons.person_outline, label: 'Profile'),
-        ],
-      ),
-    );
-  }
-}
-
-class _BottomBarItem extends StatelessWidget {
-  const _BottomBarItem({
-    required this.icon,
-    required this.label,
-    this.active = false,
-    this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool active;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = active ? const Color(0xFF2C4552) : const Color(0xFF4F5962);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        padding: active
-            ? const EdgeInsets.symmetric(horizontal: 12, vertical: 5)
-            : EdgeInsets.zero,
-        decoration: active
-            ? BoxDecoration(
-                color: const Color(0xFF3A99BC),
-                borderRadius: BorderRadius.circular(18),
-              )
-            : null,
-        child: Row(
-          children: [
-            Icon(icon, size: 24, color: color),
-            if (active) ...[
-              const SizedBox(width: 5),
-              Text(label, style: TextStyle(fontSize: 11, color: color)),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
 }

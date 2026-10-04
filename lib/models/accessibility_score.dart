@@ -1,4 +1,4 @@
-import 'place.dart';
+import 'search_place.dart';
 
 class AccessibilityScore {
   const AccessibilityScore({
@@ -6,7 +6,7 @@ class AccessibilityScore {
     this.totalFeatures = _totalKnownFeatures,
   });
 
-  factory AccessibilityScore.fromPlace(Place place) {
+  factory AccessibilityScore.fromPlace(SearchPlace place) {
     return AccessibilityScore(availableFeatures: place.accessibilityFeatures);
   }
 

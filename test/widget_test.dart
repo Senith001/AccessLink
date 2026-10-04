@@ -8,7 +8,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:accesslink/models/place.dart';
+import 'package:accesslink/accessibility/accessibility_settings.dart';
+import 'package:accesslink/main.dart';
+import 'package:accesslink/models/search_place.dart';
+import 'package:accesslink/navigation/bottom_navigation.dart';
 import 'package:accesslink/screens/home_screen.dart';
 import 'package:accesslink/screens/search_results_screen.dart';
 
@@ -20,9 +23,14 @@ void main() {
   });
 
   testWidgets('home opens saved places screen', (WidgetTester tester) async {
-    await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
+    await tester.pumpWidget(
+      AccessLinkApp(
+        settings: AccessibilitySettings(),
+        home: const BottomNavigationScreen(),
+      ),
+    );
 
-    await tester.tap(find.byIcon(Icons.favorite_border));
+    await tester.tap(find.text('Saved'));
     await tester.pumpAndSettle();
 
     expect(find.text('Saved places'), findsOneWidget);

@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../core/database/firestore_collections.dart';
-import '../models/place.dart';
+import '../models/search_place.dart';
 import '../models/saved_place.dart';
 
 class FavoritesService {
@@ -32,7 +32,7 @@ class FavoritesService {
       return _firebaseFirestore
           .collection(FirestoreCollections.users)
           .doc(user.uid)
-          .collection('favorite_places');
+          .collection('favorites');
     } on FirebaseException {
       return null;
     }
@@ -51,21 +51,17 @@ class FavoritesService {
     final collection = _favoritesCollection;
     if (collection == null) return Stream.value(const <SavedPlace>[]);
 
-    return collection
-        .orderBy('savedAt', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map(
-                (document) =>
-                    SavedPlace.fromData(document.data(), id: document.id),
-              )
-              .whereType<SavedPlace>()
-              .toList(),
-        );
+    return collection.snapshots().map(
+      (snapshot) => snapshot.docs
+          .map(
+            (document) => SavedPlace.fromData(document.data(), id: document.id),
+          )
+          .whereType<SavedPlace>()
+          .toList(),
+    );
   }
 
-  Future<void> addFavorite(Place place) async {
+  Future<void> addFavorite(SearchPlace place) async {
     final collection = _favoritesCollection;
     if (collection == null) {
       throw StateError('Please log in to save favourite places.');
@@ -77,7 +73,7 @@ class FavoritesService {
     });
   }
 
-  Future<void> removeFavorite(Place place) async {
+  Future<void> removeFavorite(SearchPlace place) async {
     return removeFavoriteById(place.id);
   }
 
@@ -90,7 +86,7 @@ class FavoritesService {
     await collection.doc(placeId).delete();
   }
 
-  Future<void> toggleFavorite(Place place, bool isSaved) {
+  Future<void> toggleFavorite(SearchPlace place, bool isSaved) {
     return isSaved ? removeFavorite(place) : addFavorite(place);
   }
 }

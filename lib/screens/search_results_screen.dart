@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../core/database/firestore_collections.dart';
 import '../models/accessibility_score.dart';
-import '../models/place.dart';
+import '../models/search_place.dart';
 import '../services/favorites_service.dart';
 import '../services/location_service.dart';
 
@@ -23,7 +23,7 @@ class SearchResultsScreen extends StatefulWidget {
   final List<Map<String, dynamic>> initialPlaces;
   final String? initialFilter;
   final bool initialNearbyOnly;
-  final PlaceLocation? initialLocation;
+  final SearchPlaceLocation? initialLocation;
   final bool enableFavorites;
   final LocationService locationService;
 
@@ -34,12 +34,12 @@ class SearchResultsScreen extends StatefulWidget {
 class _SearchResultsScreenState extends State<SearchResultsScreen> {
   late final TextEditingController _searchController;
   late final TextEditingController _locationController;
-  List<Place> _places = const [];
+  List<SearchPlace> _places = const [];
   bool _isLoading = true;
   bool _isLoadingLocation = false;
   String? _loadError;
   String? _locationError;
-  PlaceLocation? _nearbyLocation;
+  SearchPlaceLocation? _nearbyLocation;
   FavoritesService? _favoritesService;
   final Set<String> _selectedFilters = {};
   String? _selectedCategory;
@@ -65,7 +65,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     'tactilepaving',
   ];
 
-  List<Place> get _results {
+  List<SearchPlace> get _results {
     final query = _searchController.text.trim().toLowerCase();
     final locationQuery = _locationController.text.trim().toLowerCase();
     final matches = _places.where((place) {
@@ -91,7 +91,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     }).toList();
 
     if (_nearbyOnly) {
-      return placesSortedByDistance(
+      return searchPlacesSortedByDistance(
         matches,
         from: _nearbyLocation ?? defaultSearchLocation,
       );
@@ -114,8 +114,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       _selectedFilters.add(widget.initialFilter!);
     }
     _places = widget.initialPlaces
-        .map(Place.fromData)
-        .whereType<Place>()
+        .map(SearchPlace.fromData)
+        .whereType<SearchPlace>()
         .toList();
     if (widget.initialPlaces.isNotEmpty) {
       _isLoading = false;
@@ -133,8 +133,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
           .collection(FirestoreCollections.places)
           .get();
       final places = snapshot.docs
-          .map(Place.fromFirestore)
-          .whereType<Place>()
+          .map(SearchPlace.fromFirestore)
+          .whereType<SearchPlace>()
           .toList();
       if (!mounted) return;
       setState(() {
@@ -301,7 +301,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     return _ResultList(places: _results);
   }
 
-  Future<void> _toggleFavorite(Place place, bool isSaved) async {
+  Future<void> _toggleFavorite(SearchPlace place, bool isSaved) async {
     final favoritesService = _favoritesService;
     if (favoritesService == null) return;
 
@@ -449,9 +449,10 @@ class _ResultList extends StatelessWidget {
     this.onToggleFavorite,
   });
 
-  final List<Place> places;
+  final List<SearchPlace> places;
   final Set<String> favoriteIds;
-  final Future<void> Function(Place place, bool isSaved)? onToggleFavorite;
+  final Future<void> Function(SearchPlace place, bool isSaved)?
+  onToggleFavorite;
 
   @override
   Widget build(BuildContext context) {
@@ -649,7 +650,7 @@ class _CategoryFilterControls extends StatelessWidget {
             itemBuilder: (context, index) {
               final category = categories[index];
               return ChoiceChip(
-                avatar: Icon(iconForCategory(category), size: 17),
+                avatar: Icon(iconForSearchCategory(category), size: 17),
                 label: Text(category),
                 selected: selectedCategory == category,
                 onSelected: (_) => onSelected(category),
@@ -702,9 +703,10 @@ class _ResultTile extends StatelessWidget {
     this.onToggleFavorite,
   });
 
-  final Place place;
+  final SearchPlace place;
   final bool isSaved;
-  final Future<void> Function(Place place, bool isSaved)? onToggleFavorite;
+  final Future<void> Function(SearchPlace place, bool isSaved)?
+  onToggleFavorite;
 
   @override
   Widget build(BuildContext context) {
@@ -763,7 +765,7 @@ class _ResultTile extends StatelessWidget {
 class _AccessibilityScoreBadge extends StatelessWidget {
   const _AccessibilityScoreBadge({required this.place});
 
-  final Place place;
+  final SearchPlace place;
 
   @override
   Widget build(BuildContext context) {

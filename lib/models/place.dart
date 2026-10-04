@@ -1,273 +1,36 @@
-import 'dart:math' as math;
-
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
 
 class Place {
-  const Place({
+  final String id;
+  final String name;
+  final String address;
+  final String categoryName;
+  final GeoPoint location;
+  final bool isVerified;
+
+  Place({
     required this.id,
     required this.name,
-    required this.category,
-    this.address = '',
-    this.city = '',
-    this.district = '',
-    this.distance = 'Near you',
-    this.latitude,
-    this.longitude,
-    this.accessibilityFeatures = const {},
-    required this.icon,
+    required this.address,
+    required this.categoryName,
+    required this.location,
+    required this.isVerified,
   });
 
-  static Place? fromFirestore(
-    QueryDocumentSnapshot<Map<String, dynamic>> document,
-  ) {
-    return fromData(document.data(), id: document.id);
-  }
-
-  static Place? fromData(Map<String, dynamic> data, {String? id}) {
-    final name = _readString(data, 'name');
-    final category =
-        _readString(data, 'category') ??
-        _readString(data, 'categoryName') ??
-        'Place';
-    if (name == null || name.trim().isEmpty) return null;
-
-    final location = data['location'];
-    final latitude =
-        _readNumber(data, 'latitude') ??
-        (location is GeoPoint ? location.latitude : null);
-    final longitude =
-        _readNumber(data, 'longitude') ??
-        (location is GeoPoint ? location.longitude : null);
+  factory Place.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data()!;
 
     return Place(
-      id: id ?? _readString(data, 'id') ?? _placeIdFor(name.trim(), category),
-      name: name.trim(),
-      category: category,
-      address: _readString(data, 'address') ?? _readString(data, 'city') ?? '',
-      city: _readString(data, 'city') ?? '',
-      district: _readString(data, 'district') ?? '',
-      latitude: latitude?.toDouble(),
-      longitude: longitude?.toDouble(),
-      accessibilityFeatures: _readAccessibilityFeatures(data),
-      icon: iconForCategory(category),
+      id: doc.id,
+      name: data['name'] ?? '',
+      address: data['address'] ?? '',
+      categoryName: data['categoryName'] ?? '',
+      location: data['location'] as GeoPoint,
+      isVerified: data['isVerified'] ?? false,
     );
   }
 
-  final String name;
-  final String id;
-  final String category;
-  final String address;
-  final String city;
-  final String district;
-  final String distance;
-  final double? latitude;
-  final double? longitude;
-  final Set<String> accessibilityFeatures;
-  final IconData icon;
+  double get latitude => location.latitude;
 
-  bool get hasCoordinates => latitude != null && longitude != null;
-
-  String get locationLabel {
-    if (city.isNotEmpty && district.isNotEmpty) return '$city, $district';
-    if (city.isNotEmpty) return city;
-    if (district.isNotEmpty) return district;
-    return address;
-  }
-
-  Place copyWith({String? distance}) {
-    return Place(
-      id: id,
-      name: name,
-      category: category,
-      address: address,
-      city: city,
-      district: district,
-      distance: distance ?? this.distance,
-      latitude: latitude,
-      longitude: longitude,
-      accessibilityFeatures: accessibilityFeatures,
-      icon: icon,
-    );
-  }
-
-  Place withDistanceFrom(PlaceLocation location) {
-    final kilometres = distanceFrom(location);
-    if (kilometres == null) return this;
-
-    return copyWith(distance: formatDistance(kilometres));
-  }
-
-  double? distanceFrom(PlaceLocation location) {
-    final placeLatitude = latitude;
-    final placeLongitude = longitude;
-    if (placeLatitude == null || placeLongitude == null) return null;
-
-    return distanceBetweenInKm(
-      location.latitude,
-      location.longitude,
-      placeLatitude,
-      placeLongitude,
-    );
-  }
-}
-
-String? _readString(Map<String, dynamic> data, String key) {
-  final value = data[key];
-  if (value == null) return null;
-  if (value is String) return value;
-  return value.toString();
-}
-
-num? _readNumber(Map<String, dynamic> data, String key) {
-  final value = data[key];
-  if (value == null) return null;
-  if (value is num) return value;
-  if (value is String) return num.tryParse(value);
-  return null;
-}
-
-String _placeIdFor(String name, String category) => '${name}_$category'
-    .trim()
-    .toLowerCase()
-    .replaceAll(RegExp(r'[^a-z0-9]+'), '_');
-
-class PlaceLocation {
-  const PlaceLocation({
-    required this.label,
-    required this.latitude,
-    required this.longitude,
-  });
-
-  final String label;
-  final double latitude;
-  final double longitude;
-}
-
-const defaultSearchLocation = PlaceLocation(
-  label: 'Current Location',
-  latitude: 6.9271,
-  longitude: 79.8612,
-);
-
-List<Place> placesSortedByDistance(
-  Iterable<Place> places, {
-  PlaceLocation from = defaultSearchLocation,
-}) {
-  final sortedPlaces = places
-      .map((place) => place.withDistanceFrom(from))
-      .toList();
-  sortedPlaces.sort((first, second) {
-    final firstDistance = first.distanceFrom(from);
-    final secondDistance = second.distanceFrom(from);
-    if (firstDistance == null && secondDistance == null) return 0;
-    if (firstDistance == null) return 1;
-    if (secondDistance == null) return -1;
-    return firstDistance.compareTo(secondDistance);
-  });
-  return sortedPlaces;
-}
-
-double distanceBetweenInKm(
-  double startLatitude,
-  double startLongitude,
-  double endLatitude,
-  double endLongitude,
-) {
-  const earthRadiusKm = 6371.0;
-  final latitudeDistance = _degreesToRadians(endLatitude - startLatitude);
-  final longitudeDistance = _degreesToRadians(endLongitude - startLongitude);
-  final startLatitudeRadians = _degreesToRadians(startLatitude);
-  final endLatitudeRadians = _degreesToRadians(endLatitude);
-
-  final haversine =
-      math.pow(math.sin(latitudeDistance / 2), 2) +
-      math.cos(startLatitudeRadians) *
-          math.cos(endLatitudeRadians) *
-          math.pow(math.sin(longitudeDistance / 2), 2);
-  final centralAngle =
-      2 * math.atan2(math.sqrt(haversine), math.sqrt(1 - haversine));
-
-  return earthRadiusKm * centralAngle;
-}
-
-String formatDistance(double kilometres) {
-  if (kilometres < 1) {
-    return '${(kilometres * 1000).round()} m away';
-  }
-  if (kilometres < 10) {
-    return '${kilometres.toStringAsFixed(1)} km away';
-  }
-  return '${kilometres.round()} km away';
-}
-
-double _degreesToRadians(double degrees) => degrees * math.pi / 180;
-
-Set<String> _readAccessibilityFeatures(Map<String, dynamic> data) {
-  final rawFeatures =
-      data['accessibility'] ??
-      data['accessibilityFeatures'] ??
-      data['accessibility_features'] ??
-      data['features'];
-
-  if (rawFeatures is List) {
-    return rawFeatures.whereType<String>().map(_normaliseFeature).toSet();
-  }
-
-  final features = <String>{};
-
-  if (rawFeatures is Map) {
-    for (final entry in rawFeatures.entries) {
-      final value = entry.value;
-      if (value == true || (value is Map && value['available'] == true)) {
-        features.add(_normaliseFeature(entry.key.toString()));
-      }
-    }
-  }
-
-  features.addAll({
-    for (final feature in accessibilityFeatureNames)
-      if (data[feature] == true) feature,
-  });
-  features.addAll({
-    if (data['hasWheelchairAccess'] == true) 'wheelchairaccessible',
-    if (data['hasAccessibleParking'] == true) 'accessibleparking',
-    if (data['hasAccessibleToilet'] == true) 'accessibletoilet',
-    if (data['hasAudioSupport'] == true) 'audiosupport',
-    if (data['hasElevator'] == true) 'elevator',
-    if (data['hasHearingSupport'] == true) 'hearingsupport',
-    if (data['hasTactilePaving'] == true) 'tactilepaving',
-  });
-
-  return features;
-}
-
-String _normaliseFeature(String value) =>
-    value.trim().toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
-
-const accessibilityFeatureNames = [
-  'accessibleparking',
-  'accessibletoilet',
-  'audiosupport',
-  'elevator',
-  'hearingsupport',
-  'tactilepaving',
-  'wheelchairaccessible',
-];
-
-IconData iconForCategory(String category) {
-  switch (category.toLowerCase()) {
-    case 'hospital':
-      return Icons.local_hospital;
-    case 'park':
-      return Icons.park;
-    case 'bank':
-      return Icons.account_balance;
-    case 'restaurant':
-      return Icons.restaurant;
-    case 'library':
-      return Icons.local_library;
-    default:
-      return Icons.place;
-  }
+  double get longitude => location.longitude;
 }
