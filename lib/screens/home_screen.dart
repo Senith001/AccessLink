@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../core/database/firestore_collections.dart';
 import '../models/accessibility_score.dart';
 import '../models/search_place.dart';
+import 'place_details_screen.dart';
 import 'search_results_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -139,7 +140,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     else ...[
                       const _NearbySectionTitle(),
                       const SizedBox(height: 10),
-                      _NearbyPlacesList(places: _places),
+                      _NearbyPlacesList(
+                        places: _places,
+                        onOpenDetails: (place) => Navigator.push(context, PlaceDetailsScreen.route(placeId: place.id)),
+                      ),
                     ],
                   ],
                 ),
@@ -342,9 +346,13 @@ class _NearbySectionTitle extends StatelessWidget {
 }
 
 class _NearbyPlacesList extends StatelessWidget {
-  const _NearbyPlacesList({required this.places});
+  const _NearbyPlacesList({
+    required this.places,
+    this.onOpenDetails,
+  });
 
   final List<SearchPlace> places;
+  final void Function(SearchPlace place)? onOpenDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -357,7 +365,10 @@ class _NearbyPlacesList extends StatelessWidget {
         itemCount: nearbyPlaces.length,
         separatorBuilder: (context, index) => const SizedBox(width: 12),
         itemBuilder: (context, index) =>
-            _NearbyPlaceCard(place: nearbyPlaces[index]),
+            _NearbyPlaceCard(
+              place: nearbyPlaces[index],
+              onOpenDetails: onOpenDetails,
+            ),
       ),
     );
   }
@@ -437,51 +448,59 @@ class _MapPreview extends StatelessWidget {
 }
 
 class _NearbyPlaceCard extends StatelessWidget {
-  const _NearbyPlaceCard({required this.place});
+  const _NearbyPlaceCard({
+    required this.place,
+    this.onOpenDetails,
+  });
 
   final SearchPlace place;
+  final void Function(SearchPlace place)? onOpenDetails;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: 164,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFE4E7EA)),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              height: 52,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8F2F7),
-                borderRadius: BorderRadius.circular(7),
+      child: InkWell(
+        onTap: onOpenDetails == null ? null : () => onOpenDetails!(place),
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xFFE4E7EA)),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 52,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8F2F7),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: Icon(place.icon, color: const Color(0xFF62A4C6)),
               ),
-              child: Icon(place.icon, color: const Color(0xFF62A4C6)),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              place.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${place.category} . ${place.distance}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12),
-            ),
-            if (AccessibilityScore.fromPlace(place).canShow) ...[
-              const SizedBox(height: 6),
-              _HomeScoreBadge(place: place),
+              const SizedBox(height: 10),
+              Text(
+                place.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${place.category} . ${place.distance}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12),
+              ),
+              if (AccessibilityScore.fromPlace(place).canShow) ...[
+                const SizedBox(height: 6),
+                _HomeScoreBadge(place: place),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

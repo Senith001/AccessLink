@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/saved_place.dart';
 import '../services/favorites_service.dart';
+import 'place_details_screen.dart';
 
 class SavedPlacesScreen extends StatefulWidget {
   const SavedPlacesScreen({super.key});
@@ -59,6 +60,7 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
                         return _SavedPlaceTile(
                           place: place,
                           onRemove: () => _removeFavorite(place),
+                          onOpenDetails: () => Navigator.push(context, PlaceDetailsScreen.route(placeId: place.id)),
                         );
                       },
                     );
@@ -113,51 +115,60 @@ class _SavedHeader extends StatelessWidget {
 }
 
 class _SavedPlaceTile extends StatelessWidget {
-  const _SavedPlaceTile({required this.place, required this.onRemove});
+  const _SavedPlaceTile({
+    required this.place,
+    required this.onRemove,
+    this.onOpenDetails,
+  });
 
   final SavedPlace place;
   final VoidCallback onRemove;
+  final VoidCallback? onOpenDetails;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FBFC),
-        border: Border.all(color: const Color(0xFFE4E7EA)),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          Icon(place.icon, size: 42, color: const Color(0xFF62A4C6)),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  place.name,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(place.category),
-                if (place.locationLabel.isNotEmpty)
+    return InkWell(
+      onTap: onOpenDetails,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FBFC),
+          border: Border.all(color: const Color(0xFFE4E7EA)),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Icon(place.icon, size: 42, color: const Color(0xFF62A4C6)),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    place.locationLabel,
-                    style: const TextStyle(fontSize: 12),
+                    place.name,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-              ],
+                  const SizedBox(height: 4),
+                  Text(place.category),
+                  if (place.locationLabel.isNotEmpty)
+                    Text(
+                      place.locationLabel,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                ],
+              ),
             ),
-          ),
-          IconButton(
-            onPressed: onRemove,
-            icon: const Icon(Icons.favorite, color: Color(0xFFFF0033)),
-            tooltip: 'Remove from saved places',
-          ),
-        ],
+            IconButton(
+              onPressed: onRemove,
+              icon: const Icon(Icons.favorite, color: Color(0xFFFF0033)),
+              tooltip: 'Remove from saved places',
+            ),
+          ],
+        ),
       ),
     );
   }

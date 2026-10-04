@@ -6,6 +6,7 @@ import '../models/accessibility_score.dart';
 import '../models/search_place.dart';
 import '../services/favorites_service.dart';
 import '../services/location_service.dart';
+import 'place_details_screen.dart';
 
 class SearchResultsScreen extends StatefulWidget {
   const SearchResultsScreen({
@@ -293,12 +294,16 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
             places: _results,
             favoriteIds: favoriteIds,
             onToggleFavorite: _toggleFavorite,
+            onOpenDetails: (place) => Navigator.push(context, PlaceDetailsScreen.route(placeId: place.id)),
           );
         },
       );
     }
 
-    return _ResultList(places: _results);
+    return _ResultList(
+      places: _results,
+      onOpenDetails: (place) => Navigator.push(context, PlaceDetailsScreen.route(placeId: place.id)),
+    );
   }
 
   Future<void> _toggleFavorite(SearchPlace place, bool isSaved) async {
@@ -447,12 +452,14 @@ class _ResultList extends StatelessWidget {
     required this.places,
     this.favoriteIds = const {},
     this.onToggleFavorite,
+    this.onOpenDetails,
   });
 
   final List<SearchPlace> places;
   final Set<String> favoriteIds;
   final Future<void> Function(SearchPlace place, bool isSaved)?
   onToggleFavorite;
+  final void Function(SearchPlace place)? onOpenDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -465,6 +472,7 @@ class _ResultList extends StatelessWidget {
           place: place,
           isSaved: favoriteIds.contains(place.id),
           onToggleFavorite: onToggleFavorite,
+          onOpenDetails: onOpenDetails,
         );
       },
     );
@@ -701,62 +709,72 @@ class _ResultTile extends StatelessWidget {
     required this.place,
     this.isSaved = false,
     this.onToggleFavorite,
+    this.onOpenDetails,
   });
 
   final SearchPlace place;
   final bool isSaved;
   final Future<void> Function(SearchPlace place, bool isSaved)?
   onToggleFavorite;
+  final void Function(SearchPlace place)? onOpenDetails;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FBFC),
-        border: Border.all(color: const Color(0xFFE4E7EA)),
+    return Semantics(
+      button: true,
+      label: 'View details for ${place.name}',
+      child: InkWell(
+        onTap: onOpenDetails == null ? null : () => onOpenDetails!(place),
         borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          Icon(place.icon, size: 42, color: const Color(0xFF62A4C6)),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  place.name,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text('${place.category} . ${place.distance}'),
-                if (AccessibilityScore.fromPlace(place).canShow) ...[
-                  const SizedBox(height: 6),
-                  _AccessibilityScoreBadge(place: place),
-                ],
-                if (place.locationLabel.isNotEmpty)
-                  Text(
-                    place.locationLabel,
-                    style: const TextStyle(fontSize: 12),
-                  ),
-              ],
-            ),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FBFC),
+            border: Border.all(color: const Color(0xFFE4E7EA)),
+            borderRadius: BorderRadius.circular(10),
           ),
-          if (onToggleFavorite != null)
-            IconButton(
-              onPressed: () => onToggleFavorite!(place, isSaved),
-              icon: Icon(isSaved ? Icons.favorite : Icons.favorite_border),
-              color: isSaved
-                  ? const Color(0xFFFF0033)
-                  : const Color(0xFF53636C),
-              tooltip: isSaved ? 'Remove from saved places' : 'Save place',
-            ),
-          const Icon(Icons.chevron_right),
-        ],
+          child: Row(
+            children: [
+              Icon(place.icon, size: 42, color: const Color(0xFF62A4C6)),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      place.name,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text('${place.category} . ${place.distance}'),
+                    if (AccessibilityScore.fromPlace(place).canShow) ...[
+                      const SizedBox(height: 6),
+                      _AccessibilityScoreBadge(place: place),
+                    ],
+                    if (place.locationLabel.isNotEmpty)
+                      Text(
+                        place.locationLabel,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                  ],
+                ),
+              ),
+              if (onToggleFavorite != null)
+                IconButton(
+                  onPressed: () => onToggleFavorite!(place, isSaved),
+                  icon: Icon(isSaved ? Icons.favorite : Icons.favorite_border),
+                  color: isSaved
+                      ? const Color(0xFFFF0033)
+                      : const Color(0xFF53636C),
+                  tooltip: isSaved ? 'Remove from saved places' : 'Save place',
+                ),
+              const Icon(Icons.chevron_right),
+            ],
+          ),
+        ),
       ),
     );
   }
