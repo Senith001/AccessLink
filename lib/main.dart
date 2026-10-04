@@ -8,6 +8,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'accessibility/accessibility_settings.dart';
 import 'accessibility/voice_guidance.dart';
 import 'screens/login_screen.dart';
+import 'navigation/bottom_navigation.dart';
+import 'navigation/home_screen.dart';
+
+const String devScreen = String.fromEnvironment('DEV_SCREEN');
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,8 +29,20 @@ void main() async {
   } catch (_) {
     // Display controls remain available for this session if storage fails.
   }
+  
+  // TEMPORARY DEV BYPASS: launch a screen directly via --dart-define=DEV_SCREEN=home. Remove before release. Default (no flag) keeps the normal auth/login flow.
+  Widget? devBypassHome;
+  if (devScreen == 'home') {
+    devBypassHome = const BottomNavigationScreen();
+  } else if (devScreen == 'home-tab') {
+    devBypassHome = const HomeScreen();
+  }
+  
   runApp(
-    AccessLinkApp(settings: AccessibilitySettings(preferences: preferences)),
+    AccessLinkApp(
+      settings: AccessibilitySettings(preferences: preferences),
+      home: devBypassHome,
+    ),
   );
 }
 
