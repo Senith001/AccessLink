@@ -170,23 +170,21 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   Widget build(BuildContext context) {
     final query = _searchController.text.trim();
     final locationQuery = _locationController.text.trim();
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: const Color(0xFF62A4C6),
+      backgroundColor: colorScheme.surface,
+      appBar: AppBar(
+        title: const Text('Search places'),
+        toolbarHeight: MediaQuery.textScalerOf(context).scale(22) + 32,
+      ),
       body: SafeArea(
+        top: false,
         child: Column(
           children: [
-            _SearchHeader(onBack: () => Navigator.pop(context)),
             Expanded(
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(22, 28, 22, 18),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(36),
-                    topRight: Radius.circular(36),
-                  ),
-                ),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -240,10 +238,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                         _nearbyOnly) ...[
                       Text(
                         _nearbyOnly ? 'Nearby places' : 'Search results',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: Theme.of(context).textTheme.titleLarge
+                            ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 12),
                     ],
@@ -294,7 +290,10 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
             places: _results,
             favoriteIds: favoriteIds,
             onToggleFavorite: _toggleFavorite,
-            onOpenDetails: (place) => Navigator.push(context, PlaceDetailsScreen.route(placeId: place.id)),
+            onOpenDetails: (place) => Navigator.push(
+              context,
+              PlaceDetailsScreen.route(placeId: place.id),
+            ),
           );
         },
       );
@@ -302,7 +301,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
 
     return _ResultList(
       places: _results,
-      onOpenDetails: (place) => Navigator.push(context, PlaceDetailsScreen.route(placeId: place.id)),
+      onOpenDetails: (place) =>
+          Navigator.push(context, PlaceDetailsScreen.route(placeId: place.id)),
     );
   }
 
@@ -479,36 +479,6 @@ class _ResultList extends StatelessWidget {
   }
 }
 
-class _SearchHeader extends StatelessWidget {
-  const _SearchHeader({required this.onBack});
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 18, 14),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: onBack,
-            icon: const Icon(Icons.arrow_back),
-            color: Colors.black,
-            tooltip: 'Back',
-          ),
-          const Expanded(
-            child: Text(
-              'Search places',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontFamily: 'Georgia', fontSize: 25),
-            ),
-          ),
-          const SizedBox(width: 48),
-        ],
-      ),
-    );
-  }
-}
-
 class _FilterControls extends StatelessWidget {
   const _FilterControls({
     required this.filters,
@@ -530,15 +500,17 @@ class _FilterControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
                 'Accessibility',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
             OutlinedButton.icon(
@@ -565,8 +537,8 @@ class _FilterControls extends StatelessWidget {
                   label: const Text('Nearby'),
                   selected: nearbyOnly,
                   onSelected: onNearbyChanged,
-                  selectedColor: const Color(0xFFBDE8F0),
-                  checkmarkColor: const Color(0xFF2C4552),
+                  selectedColor: colorScheme.primaryContainer,
+                  checkmarkColor: colorScheme.onPrimaryContainer,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   visualDensity: VisualDensity.compact,
                 );
@@ -579,8 +551,8 @@ class _FilterControls extends StatelessWidget {
                 label: Text(filter.$1),
                 selected: selectedFilters.contains(key),
                 onSelected: (_) => onChanged(key),
-                selectedColor: const Color(0xFFBDE8F0),
-                checkmarkColor: const Color(0xFF2C4552),
+                selectedColor: colorScheme.primaryContainer,
+                checkmarkColor: colorScheme.onPrimaryContainer,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 visualDensity: VisualDensity.compact,
               );
@@ -605,6 +577,7 @@ class _LocationQuickFilters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return SizedBox(
       height: 38,
       child: ListView.separated(
@@ -618,7 +591,7 @@ class _LocationQuickFilters extends StatelessWidget {
             label: Text(location),
             selected: selectedLocation == location,
             onSelected: (_) => onSelected(location),
-            selectedColor: const Color(0xFFBDE8F0),
+            selectedColor: colorScheme.primaryContainer,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             visualDensity: VisualDensity.compact,
           );
@@ -641,12 +614,14 @@ class _CategoryFilterControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Category',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          style: Theme.of(context).textTheme.titleMedium
+              ?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
         SizedBox(
@@ -662,7 +637,7 @@ class _CategoryFilterControls extends StatelessWidget {
                 label: Text(category),
                 selected: selectedCategory == category,
                 onSelected: (_) => onSelected(category),
-                selectedColor: const Color(0xFFBDE8F0),
+                selectedColor: colorScheme.primaryContainer,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 visualDensity: VisualDensity.compact,
               );
@@ -674,34 +649,17 @@ class _CategoryFilterControls extends StatelessWidget {
   }
 }
 
-InputDecoration _searchDecoration() => InputDecoration(
+InputDecoration _searchDecoration() => const InputDecoration(
   hintText: 'Search accessible places',
-  prefixIcon: const Icon(Icons.search, color: Color(0xFF009BC2)),
-  suffixIcon: const Icon(Icons.clear),
-  enabledBorder: OutlineInputBorder(
-    borderSide: const BorderSide(color: Color(0xFFE4E7EA)),
-    borderRadius: BorderRadius.circular(9),
-  ),
-  focusedBorder: OutlineInputBorder(
-    borderSide: const BorderSide(color: Color(0xFF62A4C6), width: 2),
-    borderRadius: BorderRadius.circular(9),
-  ),
+  prefixIcon: Icon(Icons.search),
+  suffixIcon: Icon(Icons.clear),
+  border: OutlineInputBorder(),
 );
 
-InputDecoration _locationSearchDecoration() => InputDecoration(
+InputDecoration _locationSearchDecoration() => const InputDecoration(
   hintText: 'Enter district or city',
-  prefixIcon: const Icon(
-    Icons.location_city_outlined,
-    color: Color(0xFF009BC2),
-  ),
-  enabledBorder: OutlineInputBorder(
-    borderSide: const BorderSide(color: Color(0xFFE4E7EA)),
-    borderRadius: BorderRadius.circular(9),
-  ),
-  focusedBorder: OutlineInputBorder(
-    borderSide: const BorderSide(color: Color(0xFF62A4C6), width: 2),
-    borderRadius: BorderRadius.circular(9),
-  ),
+  prefixIcon: Icon(Icons.location_city_outlined),
+  border: OutlineInputBorder(),
 );
 
 class _ResultTile extends StatelessWidget {
@@ -720,36 +678,57 @@ class _ResultTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Semantics(
       button: true,
       label: 'View details for ${place.name}',
       child: InkWell(
         onTap: onOpenDetails == null ? null : () => onOpenDetails!(place),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.all(14),
+          constraints: const BoxConstraints(minHeight: 88),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFFF8FBFC),
-            border: Border.all(color: const Color(0xFFE4E7EA)),
-            borderRadius: BorderRadius.circular(10),
+            color: colorScheme.surface,
+            border: Border.all(color: colorScheme.outline),
+            borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
             children: [
-              Icon(place.icon, size: 42, color: const Color(0xFF62A4C6)),
-              const SizedBox(width: 14),
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  place.icon,
+                  size: 28,
+                  color: colorScheme.onPrimaryContainer,
+                ),
+              ),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       place.name,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 4),
-                    Text('${place.category} . ${place.distance}'),
+                    Text(
+                      '${place.category} . ${place.distance}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurface.withValues(alpha: 0.72),
+                      ),
+                    ),
                     if (AccessibilityScore.fromPlace(place).canShow) ...[
                       const SizedBox(height: 6),
                       _AccessibilityScoreBadge(place: place),
@@ -757,7 +736,11 @@ class _ResultTile extends StatelessWidget {
                     if (place.locationLabel.isNotEmpty)
                       Text(
                         place.locationLabel,
-                        style: const TextStyle(fontSize: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurface.withValues(alpha: 0.72),
+                        ),
                       ),
                   ],
                 ),
@@ -766,12 +749,13 @@ class _ResultTile extends StatelessWidget {
                 IconButton(
                   onPressed: () => onToggleFavorite!(place, isSaved),
                   icon: Icon(isSaved ? Icons.favorite : Icons.favorite_border),
-                  color: isSaved
-                      ? const Color(0xFFFF0033)
-                      : const Color(0xFF53636C),
+                  color: isSaved ? colorScheme.error : colorScheme.primary,
                   tooltip: isSaved ? 'Remove from saved places' : 'Save place',
                 ),
-              const Icon(Icons.chevron_right),
+              Icon(
+                Icons.chevron_right,
+                color: colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
             ],
           ),
         ),
@@ -787,17 +771,17 @@ class _AccessibilityScoreBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFEAF7EF),
+        color: colorScheme.primaryContainer,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFFBFE4C8)),
       ),
       child: Text(
         AccessibilityScore.fromPlace(place).label,
-        style: const TextStyle(
-          color: Color(0xFF246B3B),
+        style: TextStyle(
+          color: colorScheme.onPrimaryContainer,
           fontSize: 12,
           fontWeight: FontWeight.w700,
         ),
@@ -809,10 +793,11 @@ class _AccessibilityScoreBadge extends StatelessWidget {
 class _SearchPrompt extends StatelessWidget {
   const _SearchPrompt();
   @override
-  Widget build(BuildContext context) => const Center(
-    child: Text(
-      'Enter a place name, category, district, or city above.',
-      textAlign: TextAlign.center,
+  Widget build(BuildContext context) => Center(
+    child: _StateMessage(
+      icon: Icons.travel_explore,
+      title: 'Find accessible places',
+      message: 'Enter a place name, category, district, or city above.',
     ),
   );
 }
@@ -825,27 +810,15 @@ class _NoResults extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
     child: Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.search_off, size: 46, color: Color(0xFF62A4C6)),
-          const SizedBox(height: 14),
-          const Text(
-            'No accessible places found',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'We could not find a public place matching "$query".',
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 18),
-          OutlinedButton.icon(
-            onPressed: onClear,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Clear search'),
-          ),
-        ],
+      child: _StateMessage(
+        icon: Icons.search_off,
+        title: 'No accessible places found',
+        message: 'We could not find a public place matching "$query".',
+        action: OutlinedButton.icon(
+          onPressed: onClear,
+          icon: const Icon(Icons.refresh),
+          label: const Text('Clear search'),
+        ),
       ),
     ),
   );
@@ -859,27 +832,82 @@ class _LoadError extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
     child: Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.cloud_off, size: 48, color: Color(0xFFFF0033)),
-          const SizedBox(height: 14),
-          const Text(
-            'Places could not be loaded',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 6),
-          Text(message, textAlign: TextAlign.center),
-          const SizedBox(height: 18),
-          OutlinedButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Try again'),
-          ),
-        ],
+      child: _StateMessage(
+        icon: Icons.cloud_off,
+        title: 'Places could not be loaded',
+        message: message,
+        isError: true,
+        action: OutlinedButton.icon(
+          onPressed: onRetry,
+          icon: const Icon(Icons.refresh),
+          label: const Text('Try again'),
+        ),
       ),
     ),
   );
+}
+
+class _StateMessage extends StatelessWidget {
+  const _StateMessage({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.action,
+    this.isError = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final Widget? action;
+  final bool isError;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final iconColor = isError ? colorScheme.error : colorScheme.primary;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact =
+            constraints.hasBoundedHeight && constraints.maxHeight < 180;
+        return Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(compact ? 12 : 24),
+          decoration: BoxDecoration(
+            border: Border.all(color: colorScheme.outline),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!compact) ...[
+                Icon(icon, size: 48, color: iconColor),
+                const SizedBox(height: 14),
+              ],
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              if (!compact) ...[
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.72),
+                  ),
+                ),
+                if (action != null) ...[const SizedBox(height: 18), action!],
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
 
 String _firestoreErrorMessage(FirebaseException error) {
