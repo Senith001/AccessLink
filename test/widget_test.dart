@@ -152,10 +152,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Filters'));
+    await tester.pumpAndSettle();
+
     final wheelchairFilter = find.text('Wheelchair');
     await tester.ensureVisible(wheelchairFilter);
     await tester.tap(wheelchairFilter);
-    await tester.pump();
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
 
     expect(find.text('Accessible Park'), findsOneWidget);
     expect(find.text('Parking Park'), findsNothing);
@@ -223,8 +227,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField).at(1), 'Kandy');
-    await tester.pump();
+    await tester.tap(find.text('Choose area'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Kandy').first);
+    await tester.pumpAndSettle();
 
     expect(find.text('Kandy Park'), findsOneWidget);
     expect(find.text('Colombo Hospital'), findsNothing);
@@ -244,8 +250,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Filters'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Restaurant'));
-    await tester.pump();
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
 
     expect(find.text('Lake Restaurant'), findsOneWidget);
     expect(find.text('City Hospital'), findsNothing);

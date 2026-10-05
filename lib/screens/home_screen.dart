@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -7,6 +8,7 @@ import '../core/database/firestore_collections.dart';
 import '../models/accessibility_score.dart';
 import '../models/search_place.dart';
 import 'map_screen.dart';
+import 'nearby_places_screen.dart';
 import 'place_details_screen.dart';
 import 'search_results_screen.dart';
 
@@ -67,11 +69,8 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => SearchResultsScreen(
-          initialPlaces: widget.initialPlaces,
-          initialNearbyOnly: true,
-          enableFavorites: true,
-        ),
+        builder: (context) =>
+            NearbyPlacesScreen(initialPlaces: widget.initialPlaces),
       ),
     );
   }
@@ -150,7 +149,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const Padding(
                         padding: EdgeInsets.all(24),
                         child: Center(
-                          child: Text('No nearby places available yet.'),
+                          child: Text('No suggested places available yet.'),
                         ),
                       )
                     else ...[
@@ -333,13 +332,13 @@ class _NearbySectionTitle extends StatelessWidget {
       children: [
         Expanded(
           child: Text(
-            'Nearby places',
+            'Suggested accessible places',
             style: Theme.of(context).textTheme.titleMedium
                 ?.copyWith(fontWeight: FontWeight.w700),
           ),
         ),
         Text(
-          defaultSearchLocation.label,
+          'Explore',
           style: Theme.of(context).textTheme.bodySmall
               ?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.72)),
         ),
@@ -360,13 +359,25 @@ class _NearbyPlacesList extends StatelessWidget {
 
     return SizedBox(
       height: 160,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: nearbyPlaces.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 12),
-        itemBuilder: (context, index) => _NearbyPlaceCard(
-          place: nearbyPlaces[index],
-          onOpenDetails: onOpenDetails,
+      child: ScrollConfiguration(
+        behavior: ScrollConfiguration.of(context).copyWith(
+          dragDevices: {
+            PointerDeviceKind.touch,
+            PointerDeviceKind.mouse,
+            PointerDeviceKind.stylus,
+            PointerDeviceKind.trackpad,
+          },
+        ),
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          primary: false,
+          physics: const BouncingScrollPhysics(),
+          itemCount: nearbyPlaces.length,
+          separatorBuilder: (context, index) => const SizedBox(width: 12),
+          itemBuilder: (context, index) => _NearbyPlaceCard(
+            place: nearbyPlaces[index],
+            onOpenDetails: onOpenDetails,
+          ),
         ),
       ),
     );

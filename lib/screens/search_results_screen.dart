@@ -1,12 +1,23 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/database/firestore_collections.dart';
 import '../models/accessibility_score.dart';
 import '../models/search_place.dart';
 import '../services/favorites_service.dart';
 import '../services/location_service.dart';
+import 'map_screen.dart';
 import 'place_details_screen.dart';
+
+enum _SearchSortMode {
+  nearest('Nearest'),
+  accessibility('Best score'),
+  name('Name');
+
+  const _SearchSortMode(this.label);
+  final String label;
+}
 
 class SearchResultsScreen extends StatefulWidget {
   const SearchResultsScreen({
@@ -18,6 +29,8 @@ class SearchResultsScreen extends StatefulWidget {
     this.initialLocation,
     this.enableFavorites = false,
     this.locationService = const LocationService(),
+    this.title = 'Search places',
+    this.showSearchControls = true,
   });
 
   final String initialQuery;
@@ -27,6 +40,8 @@ class SearchResultsScreen extends StatefulWidget {
   final SearchPlaceLocation? initialLocation;
   final bool enableFavorites;
   final LocationService locationService;
+  final String title;
+  final bool showSearchControls;
 
   @override
   State<SearchResultsScreen> createState() => _SearchResultsScreenState();
@@ -43,8 +58,27 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   SearchPlaceLocation? _nearbyLocation;
   FavoritesService? _favoritesService;
   final Set<String> _selectedFilters = {};
+  List<String> _recentSearches = const [];
+  _SearchSortMode _sortMode = _SearchSortMode.nearest;
   String? _selectedCategory;
   late bool _nearbyOnly;
+
+  static const _historyKey = 'search_discovery_history';
+
+  static const _popularAreas = [
+    'Colombo',
+    'Gampaha',
+    'Kandy',
+    'Galle',
+    'Matara',
+    'Kurunegala',
+    'Jaffna',
+    'Negombo',
+    'Nugegoda',
+    'Maharagama',
+    'Battaramulla',
+    'Dehiwala',
+  ];
 
   static const _filters = {
     'wheelchairaccessible': ('Wheelchair', Icons.accessible_forward),
@@ -55,16 +89,6 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     'hearingsupport': ('Hearing', Icons.hearing),
     'tactilepaving': ('Tactile', Icons.assistant),
   };
-
-  static const _quickFilters = [
-    'wheelchairaccessible',
-    'accessibleparking',
-    'accessibletoilet',
-    'audiosupport',
-    'elevator',
-    'hearingsupport',
-    'tactilepaving',
-  ];
 
   List<SearchPlace> get _results {
     final query = _searchController.text.trim().toLowerCase();
@@ -91,14 +115,54 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
           matchesFilters;
     }).toList();
 
-    if (_nearbyOnly) {
-      return searchPlacesSortedByDistance(
-        matches,
-        from: _nearbyLocation ?? defaultSearchLocation,
-      );
+    final sortedPlaces = matches.toList();
+    switch (_sortMode) {
+      case _SearchSortMode.nearest:
+        return searchPlacesSortedByDistance(
+          sortedPlaces,
+          from: _nearbyLocation ?? defaultSearchLocation,
+        );
+      case _SearchSortMode.accessibility:
+        sortedPlaces.sort((first, second) {
+          final firstScore = AccessibilityScore.fromPlace(first).percent;
+          final secondScore = AccessibilityScore.fromPlace(second).percent;
+          return secondScore.compareTo(firstScore);
+        });
+        return sortedPlaces;
+      case _SearchSortMode.name:
+        sortedPlaces.sort((first, second) => first.name.compareTo(second.name));
+        return sortedPlaces;
     }
+  }
 
-    return matches;
+  bool get _hasActiveSearch =>
+      _searchController.text.trim().isNotEmpty ||
+      _locationController.text.trim().isNotEmpty ||
+      _selectedCategory != null ||
+      _selectedFilters.isNotEmpty ||
+      _nearbyOnly;
+
+  bool get _showActiveSummary =>
+      _activeFilterLabels.isNotEmpty &&
+      !(_nearbyOnly &&
+          _searchController.text.trim().isEmpty &&
+          _locationController.text.trim().isEmpty &&
+          _selectedCategory == null &&
+          _selectedFilters.isEmpty);
+
+  List<String> get _activeFilterLabels => [
+    if (_nearbyOnly) 'Nearby',
+    if (_locationController.text.trim().isNotEmpty)
+      'Location: ${_locationController.text.trim()}',
+    if (_selectedCategory != null) 'Category: $_selectedCategory',
+    for (final filter in _selectedFilters) _filters[filter]?.$1 ?? filter,
+  ];
+
+  String get _areaLabel {
+    if (_nearbyOnly) return 'Near me';
+    final area = _locationController.text.trim();
+    if (area.isNotEmpty) return area;
+    return 'Any area';
   }
 
   @override
@@ -125,6 +189,40 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     }
     if (_nearbyOnly && _nearbyLocation == null) {
       _requestCurrentLocation();
+    }
+    _loadRecentSearches();
+  }
+
+  Future<void> _loadRecentSearches() async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() {
+        _recentSearches = preferences.getStringList(_historyKey) ?? const [];
+      });
+    } catch (_) {
+      // Search still works if local history storage is unavailable.
+    }
+  }
+
+  Future<void> _recordSearch({String? value}) async {
+    final term = (value ?? _searchController.text).trim();
+    if (term.length < 2) return;
+
+    final updated = [
+      term,
+      ..._recentSearches.where(
+        (item) => item.toLowerCase() != term.toLowerCase(),
+      ),
+    ].take(6).toList();
+
+    setState(() => _recentSearches = updated);
+
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setStringList(_historyKey, updated);
+    } catch (_) {
+      // Keep in-memory history for this session.
     }
   }
 
@@ -174,7 +272,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     return Scaffold(
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Search places'),
+        title: Text(widget.title),
         toolbarHeight: MediaQuery.textScalerOf(context).scale(22) + 32,
       ),
       body: SafeArea(
@@ -188,58 +286,72 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextField(
-                      autofocus: widget.initialQuery.isEmpty,
-                      controller: _searchController,
-                      onChanged: (_) => setState(() {}),
-                      onSubmitted: (_) => setState(() {}),
-                      textInputAction: TextInputAction.search,
-                      decoration: _searchDecoration(),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _locationController,
-                      onChanged: (_) => setState(() {}),
-                      onSubmitted: (_) => setState(() {}),
-                      textInputAction: TextInputAction.search,
-                      decoration: _locationSearchDecoration(),
-                    ),
-                    if (_locationOptions.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      _LocationQuickFilters(
-                        locations: _locationOptions,
-                        selectedLocation: locationQuery,
-                        onSelected: _selectLocation,
+                    if (widget.showSearchControls) ...[
+                      TextField(
+                        autofocus: widget.initialQuery.isEmpty,
+                        controller: _searchController,
+                        onChanged: (_) => setState(() {}),
+                        onSubmitted: (_) {
+                          _recordSearch();
+                          setState(() {});
+                        },
+                        textInputAction: TextInputAction.search,
+                        decoration: _searchDecoration(
+                          hasText: query.isNotEmpty,
+                          onClear: _clearSearchQuery,
+                        ),
+                      ),
+                      if (query.isEmpty && _recentSearches.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        _InlineSearchHistory(
+                          searches: _recentSearches,
+                          onSelected: _applyHistorySearch,
+                          onClearAll: _clearSearchHistory,
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      _SearchAreaSelector(
+                        label: _areaLabel,
+                        isNearby: _nearbyOnly,
+                        hasSelectedArea: locationQuery.isNotEmpty,
+                        onUseNearby: () => _toggleNearbyOnly(true),
+                        onChooseArea: _openAreaPicker,
+                        onOpenMap: _openMap,
+                        onClearArea: _clearLocationQuery,
+                      ),
+                    ] else ...[
+                      _NearbyStatusCard(
+                        hasLocation: _nearbyLocation != null,
+                        isLoading: _isLoadingLocation,
+                        onRefresh: _requestCurrentLocation,
+                        onOpenMap: _openMap,
                       ),
                     ],
-                    const SizedBox(height: 12),
-                    if (_categoryOptions.isNotEmpty) ...[
-                      _CategoryFilterControls(
-                        categories: _categoryOptions,
-                        selectedCategory: _selectedCategory,
-                        onSelected: _selectCategory,
-                      ),
+                    const SizedBox(height: 8),
+                    _SearchToolsRow(
+                      hasActiveFilters:
+                          _selectedCategory != null ||
+                          _selectedFilters.isNotEmpty ||
+                          _nearbyOnly,
+                      onOpenFilters: _openFilterList,
+                    ),
+                    if (_showActiveSummary) ...[
                       const SizedBox(height: 12),
+                      _ActiveSearchSummary(
+                        labels: _activeFilterLabels,
+                        onClear: _clearSearch,
+                      ),
                     ],
-                    _FilterControls(
-                      filters: _filters,
-                      quickFilters: _quickFilters,
-                      selectedFilters: _selectedFilters,
-                      nearbyOnly: _nearbyOnly,
-                      onChanged: _toggleFilter,
-                      onNearbyChanged: _toggleNearbyOnly,
-                      onOpenFilterList: _openFilterList,
-                    ),
-                    const SizedBox(height: 22),
-                    if (query.isNotEmpty ||
-                        locationQuery.isNotEmpty ||
-                        _selectedCategory != null ||
-                        _selectedFilters.isNotEmpty ||
-                        _nearbyOnly) ...[
-                      Text(
-                        _nearbyOnly ? 'Nearby places' : 'Search results',
-                        style: Theme.of(context).textTheme.titleLarge
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                    const SizedBox(height: 16),
+                    if (_hasActiveSearch) ...[
+                      _ResultsHeader(
+                        title: _nearbyOnly ? 'Nearby places' : 'Search results',
+                        count: _results.length,
+                        sortMode: _sortMode,
+                        onSortChanged: (mode) {
+                          if (mode == null) return;
+                          setState(() => _sortMode = mode);
+                        },
                       ),
                       const SizedBox(height: 12),
                     ],
@@ -275,10 +387,18 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         _selectedCategory == null &&
         _selectedFilters.isEmpty &&
         !_nearbyOnly) {
-      return const _SearchPrompt();
+      return _SearchPrompt(
+        recentSearches: _recentSearches,
+        onSearchSelected: _applyHistorySearch,
+      );
     }
     if (_results.isEmpty) {
-      return _NoResults(query: query, onClear: _clearSearch);
+      return _NoResults(
+        query: query.isNotEmpty ? query : locationQuery,
+        suggestions: _suggestedSearches,
+        onClear: _clearSearch,
+        onSuggestionSelected: _applyHistorySearch,
+      );
     }
     final favoritesService = _favoritesService;
     if (favoritesService != null) {
@@ -331,6 +451,35 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     _searchController.clear();
     _locationController.clear();
     _selectedCategory = null;
+    _selectedFilters.clear();
+    _nearbyOnly = false;
+    setState(() {});
+  }
+
+  void _clearSearchQuery() {
+    _searchController.clear();
+    setState(() {});
+  }
+
+  void _clearLocationQuery() {
+    _locationController.clear();
+    _nearbyOnly = false;
+    setState(() {});
+  }
+
+  Future<void> _clearSearchHistory() async {
+    setState(() => _recentSearches = const []);
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.remove(_historyKey);
+    } catch (_) {
+      // Clearing the visible history is enough if storage is unavailable.
+    }
+  }
+
+  void _applyHistorySearch(String value) {
+    _searchController.text = value;
+    _recordSearch(value: value);
     setState(() {});
   }
 
@@ -342,6 +491,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
 
   void _selectLocation(String location) {
     _locationController.text = location;
+    _nearbyOnly = false;
     setState(() {});
   }
 
@@ -354,12 +504,40 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     return (locations.toList()..sort()).take(8).toList();
   }
 
+  List<String> get _areaOptions {
+    final seen = <String>{};
+    return [
+      for (final area in [..._locationOptions, ..._popularAreas])
+        if (area.trim().isNotEmpty && seen.add(area.trim().toLowerCase()))
+          area.trim(),
+    ];
+  }
+
   List<String> get _categoryOptions {
     final categories = {
       for (final place in _places)
         if (place.category.trim().isNotEmpty) place.category.trim(),
     };
     return (categories.toList()..sort()).take(8).toList();
+  }
+
+  List<String> get _suggestedSearches {
+    final suggestions = <String>[
+      ..._recentSearches,
+      ..._categoryOptions,
+      ..._locationOptions,
+      'Hospital',
+      'Restaurant',
+      'Park',
+      'Bank',
+    ];
+    final seen = <String>{};
+    return [
+      for (final suggestion in suggestions)
+        if (suggestion.trim().isNotEmpty &&
+            seen.add(suggestion.trim().toLowerCase()))
+          suggestion.trim(),
+    ].take(8).toList();
   }
 
   void _toggleFilter(String filter) {
@@ -374,10 +552,102 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     setState(() {
       _nearbyOnly = selected;
       _locationError = null;
+      if (selected) {
+        _locationController.clear();
+      }
     });
 
     if (selected && _nearbyLocation == null) {
       _requestCurrentLocation();
+    }
+  }
+
+  void _openMap() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const MapScreen()),
+    );
+  }
+
+  Future<void> _openAreaPicker() async {
+    var query = '';
+
+    final selectedArea = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final visibleAreas = _areaOptions.where((area) {
+              return query.isEmpty ||
+                  area.toLowerCase().contains(query.toLowerCase());
+            }).toList();
+
+            return SafeArea(
+              child: ListView(
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
+                        tooltip: 'Close area picker',
+                      ),
+                      Expanded(
+                        child: Text(
+                          'Choose search area',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, ''),
+                        child: const Text('Clear'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    decoration: const InputDecoration(
+                      hintText: 'Search district or city',
+                      prefixIcon: Icon(Icons.location_city_outlined),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) => setSheetState(() => query = value),
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final area in visibleAreas)
+                        ChoiceChip(
+                          avatar: const Icon(
+                            Icons.location_on_outlined,
+                            size: 16,
+                          ),
+                          label: Text(area),
+                          selected: _locationController.text == area,
+                          onSelected: (_) => Navigator.pop(context, area),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (!mounted || selectedArea == null) return;
+    if (selectedArea.isEmpty) {
+      _clearLocationQuery();
+    } else {
+      _selectLocation(selectedArea);
     }
   }
 
@@ -401,17 +671,119 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             return SafeArea(
               child: ListView(
                 shrinkWrap: true,
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
                 children: [
-                  const Text(
-                    'Accessibility filters',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
+                        tooltip: 'Close filters',
+                      ),
+                      Expanded(
+                        child: Text(
+                          'Filters',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _nearbyOnly = false;
+                            _selectedCategory = null;
+                            _selectedFilters.clear();
+                            _locationController.clear();
+                          });
+                          setSheetState(() {});
+                        },
+                        child: const Text('Clear'),
+                      ),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Apply'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    value: _nearbyOnly,
+                    secondary: const Icon(Icons.near_me_outlined),
+                    title: const Text('Nearby places'),
+                    subtitle: const Text('Sort results from your location'),
+                    onChanged: (selected) {
+                      _toggleNearbyOnly(selected);
+                      setSheetState(() {});
+                    },
+                  ),
+                  if (_locationOptions.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'District or city',
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final location in _locationOptions)
+                          ChoiceChip(
+                            avatar: const Icon(
+                              Icons.location_city_outlined,
+                              size: 16,
+                            ),
+                            label: Text(location),
+                            selected: _locationController.text == location,
+                            onSelected: (_) {
+                              _selectLocation(location);
+                              setSheetState(() {});
+                            },
+                          ),
+                      ],
+                    ),
+                  ],
+                  if (_categoryOptions.isNotEmpty) ...[
+                    const SizedBox(height: 18),
+                    Text(
+                      'Category',
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final category in _categoryOptions)
+                          ChoiceChip(
+                            avatar: Icon(
+                              iconForSearchCategory(category),
+                              size: 17,
+                            ),
+                            label: Text(category),
+                            selected: _selectedCategory == category,
+                            onSelected: (_) {
+                              _selectCategory(category);
+                              setSheetState(() {});
+                            },
+                          ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 18),
+                  Text(
+                    'Accessibility',
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 8),
                   for (final entry in _filters.entries)
@@ -424,11 +796,6 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                         setSheetState(() {});
                       },
                     ),
-                  const SizedBox(height: 8),
-                  FilledButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Apply filters'),
-                  ),
                 ],
               ),
             );
@@ -479,84 +846,52 @@ class _ResultList extends StatelessWidget {
   }
 }
 
-class _FilterControls extends StatelessWidget {
-  const _FilterControls({
-    required this.filters,
-    required this.quickFilters,
-    required this.selectedFilters,
-    required this.nearbyOnly,
-    required this.onChanged,
-    required this.onNearbyChanged,
-    required this.onOpenFilterList,
+class _ResultsHeader extends StatelessWidget {
+  const _ResultsHeader({
+    required this.title,
+    required this.count,
+    required this.sortMode,
+    required this.onSortChanged,
   });
 
-  final Map<String, (String, IconData)> filters;
-  final List<String> quickFilters;
-  final Set<String> selectedFilters;
-  final bool nearbyOnly;
-  final ValueChanged<String> onChanged;
-  final ValueChanged<bool> onNearbyChanged;
-  final VoidCallback onOpenFilterList;
+  final String title;
+  final int count;
+  final _SearchSortMode sortMode;
+  final ValueChanged<_SearchSortMode?> onSortChanged;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Accessibility',
-                style: Theme.of(context).textTheme.titleMedium
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleLarge
                     ?.copyWith(fontWeight: FontWeight.w700),
               ),
-            ),
-            OutlinedButton.icon(
-              onPressed: onOpenFilterList,
-              icon: const Icon(Icons.tune, size: 17),
-              label: const Text('Filters'),
-              style: OutlinedButton.styleFrom(
-                visualDensity: VisualDensity.compact,
+              Text(
+                '$count accessible ${count == 1 ? 'place' : 'places'} found',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurface.withValues(alpha: 0.72),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 40,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: quickFilters.length + 1,
-            separatorBuilder: (context, index) => const SizedBox(width: 8),
-            itemBuilder: (context, index) {
-              if (index == 0) {
-                return FilterChip(
-                  avatar: const Icon(Icons.near_me_outlined, size: 17),
-                  label: const Text('Nearby'),
-                  selected: nearbyOnly,
-                  onSelected: onNearbyChanged,
-                  selectedColor: colorScheme.primaryContainer,
-                  checkmarkColor: colorScheme.onPrimaryContainer,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
-                );
-              }
-
-              final key = quickFilters[index - 1];
-              final filter = filters[key]!;
-              return FilterChip(
-                avatar: Icon(filter.$2, size: 17),
-                label: Text(filter.$1),
-                selected: selectedFilters.contains(key),
-                onSelected: (_) => onChanged(key),
-                selectedColor: colorScheme.primaryContainer,
-                checkmarkColor: colorScheme.onPrimaryContainer,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-              );
-            },
+        DropdownButtonHideUnderline(
+          child: DropdownButton<_SearchSortMode>(
+            value: sortMode,
+            borderRadius: BorderRadius.circular(12),
+            icon: const Icon(Icons.sort),
+            items: [
+              for (final mode in _SearchSortMode.values)
+                DropdownMenuItem(value: mode, child: Text(mode.label)),
+            ],
+            onChanged: onSortChanged,
           ),
         ),
       ],
@@ -564,102 +899,385 @@ class _FilterControls extends StatelessWidget {
   }
 }
 
-class _LocationQuickFilters extends StatelessWidget {
-  const _LocationQuickFilters({
-    required this.locations,
-    required this.selectedLocation,
-    required this.onSelected,
+class _SearchToolsRow extends StatelessWidget {
+  const _SearchToolsRow({
+    required this.hasActiveFilters,
+    required this.onOpenFilters,
   });
 
-  final List<String> locations;
-  final String selectedLocation;
-  final ValueChanged<String> onSelected;
+  final bool hasActiveFilters;
+  final VoidCallback onOpenFilters;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      height: 38,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: locations.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final location = locations[index];
-          return ChoiceChip(
-            avatar: const Icon(Icons.location_city_outlined, size: 16),
-            label: Text(location),
-            selected: selectedLocation == location,
-            onSelected: (_) => onSelected(location),
-            selectedColor: colorScheme.primaryContainer,
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-          );
-        },
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            hasActiveFilters
+                ? 'Filters are shaping these results'
+                : 'Use filters to narrow your search',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurface.withValues(alpha: 0.72),
+            ),
+          ),
+        ),
+        OutlinedButton.icon(
+          onPressed: onOpenFilters,
+          icon: Icon(
+            hasActiveFilters ? Icons.filter_alt : Icons.tune,
+            size: 17,
+          ),
+          label: const Text('Filters'),
+          style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+        ),
+      ],
+    );
+  }
+}
+
+class _SearchAreaSelector extends StatelessWidget {
+  const _SearchAreaSelector({
+    required this.label,
+    required this.isNearby,
+    required this.hasSelectedArea,
+    required this.onUseNearby,
+    required this.onChooseArea,
+    required this.onOpenMap,
+    required this.onClearArea,
+  });
+
+  final String label;
+  final bool isNearby;
+  final bool hasSelectedArea;
+  final VoidCallback onUseNearby;
+  final VoidCallback onChooseArea;
+  final VoidCallback onOpenMap;
+  final VoidCallback onClearArea;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        border: Border.all(color: colorScheme.outline),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.place_outlined, size: 18, color: colorScheme.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Search area: $label',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+              if (isNearby || hasSelectedArea)
+                IconButton(
+                  onPressed: onClearArea,
+                  icon: const Icon(Icons.close, size: 18),
+                  tooltip: 'Clear search area',
+                  visualDensity: VisualDensity.compact,
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                avatar: const Icon(Icons.my_location, size: 16),
+                label: const Text('Near me'),
+                selected: isNearby,
+                onSelected: (_) => onUseNearby(),
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.location_city_outlined, size: 16),
+                label: const Text('Choose area'),
+                onPressed: onChooseArea,
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.map_outlined, size: 16),
+                label: const Text('Map'),
+                onPressed: onOpenMap,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 }
 
-class _CategoryFilterControls extends StatelessWidget {
-  const _CategoryFilterControls({
-    required this.categories,
-    required this.selectedCategory,
-    required this.onSelected,
+class _NearbyStatusCard extends StatelessWidget {
+  const _NearbyStatusCard({
+    required this.hasLocation,
+    required this.isLoading,
+    required this.onRefresh,
+    required this.onOpenMap,
   });
 
-  final List<String> categories;
-  final String? selectedCategory;
-  final ValueChanged<String> onSelected;
+  final bool hasLocation;
+  final bool isLoading;
+  final VoidCallback onRefresh;
+  final VoidCallback onOpenMap;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: colorScheme.primary,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              hasLocation ? Icons.my_location : Icons.location_searching,
+              color: colorScheme.onPrimary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hasLocation
+                      ? 'Showing places near you'
+                      : 'Finding places near you',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  hasLocation
+                      ? 'Results are sorted using your latest location.'
+                      : 'Location permission may be requested if needed.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onPrimaryContainer.withValues(
+                      alpha: 0.78,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: isLoading ? null : onRefresh,
+            icon: isLoading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh),
+            color: colorScheme.onPrimaryContainer,
+            tooltip: 'Refresh current location',
+          ),
+          IconButton(
+            onPressed: onOpenMap,
+            icon: const Icon(Icons.map_outlined),
+            color: colorScheme.onPrimaryContainer,
+            tooltip: 'Open map',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActiveSearchSummary extends StatelessWidget {
+  const _ActiveSearchSummary({required this.labels, required this.onClear});
+
+  final List<String> labels;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.outline),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.filter_alt_outlined, size: 18, color: colorScheme.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final label in labels) ...[
+                    Chip(
+                      label: Text(label),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: onClear,
+            style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchSuggestionChips extends StatelessWidget {
+  const _SearchSuggestionChips({
+    required this.title,
+    required this.suggestions,
+    required this.onSelected,
+  });
+
+  final String title;
+  final List<String> suggestions;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    if (suggestions.isEmpty) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Category',
-          style: Theme.of(context).textTheme.titleMedium
+          title,
+          style: Theme.of(context).textTheme.labelLarge
               ?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
-        SizedBox(
-          height: 40,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: categories.length,
-            separatorBuilder: (context, index) => const SizedBox(width: 8),
-            itemBuilder: (context, index) {
-              final category = categories[index];
-              return ChoiceChip(
-                avatar: Icon(iconForSearchCategory(category), size: 17),
-                label: Text(category),
-                selected: selectedCategory == category,
-                onSelected: (_) => onSelected(category),
-                selectedColor: colorScheme.primaryContainer,
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final suggestion in suggestions)
+              ActionChip(
+                avatar: const Icon(Icons.history, size: 16),
+                label: Text(suggestion),
+                onPressed: () => onSelected(suggestion),
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-              );
-            },
-          ),
+              ),
+          ],
         ),
       ],
     );
   }
 }
 
-InputDecoration _searchDecoration() => const InputDecoration(
-  hintText: 'Search accessible places',
-  prefixIcon: Icon(Icons.search),
-  suffixIcon: Icon(Icons.clear),
-  border: OutlineInputBorder(),
-);
+class _InlineSearchHistory extends StatelessWidget {
+  const _InlineSearchHistory({
+    required this.searches,
+    required this.onSelected,
+    required this.onClearAll,
+  });
 
-InputDecoration _locationSearchDecoration() => const InputDecoration(
-  hintText: 'Enter district or city',
-  prefixIcon: Icon(Icons.location_city_outlined),
-  border: OutlineInputBorder(),
+  final List<String> searches;
+  final ValueChanged<String> onSelected;
+  final VoidCallback onClearAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        border: Border.all(color: colorScheme.outline),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.history, size: 18, color: colorScheme.primary),
+          const SizedBox(width: 8),
+          Text(
+            'Recent',
+            style: Theme.of(context).textTheme.labelLarge
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final search in searches) ...[
+                    ActionChip(
+                      label: Text(search),
+                      onPressed: () => onSelected(search),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: onClearAll,
+            icon: const Icon(Icons.close, size: 18),
+            tooltip: 'Clear search history',
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+InputDecoration _searchDecoration({
+  required bool hasText,
+  required VoidCallback onClear,
+}) => InputDecoration(
+  hintText: 'Search accessible places',
+  prefixIcon: const Icon(Icons.search),
+  suffixIcon: hasText
+      ? IconButton(
+          onPressed: onClear,
+          icon: const Icon(Icons.clear),
+          tooltip: 'Clear search',
+        )
+      : null,
+  border: const OutlineInputBorder(),
 );
 
 class _ResultTile extends StatelessWidget {
@@ -686,8 +1304,8 @@ class _ResultTile extends StatelessWidget {
         onTap: onOpenDetails == null ? null : () => onOpenDetails!(place),
         borderRadius: BorderRadius.circular(16),
         child: Container(
-          constraints: const BoxConstraints(minHeight: 88),
-          padding: const EdgeInsets.all(16),
+          constraints: const BoxConstraints(minHeight: 76),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: colorScheme.surface,
             border: Border.all(color: colorScheme.outline),
@@ -696,15 +1314,15 @@ class _ResultTile extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 52,
-                height: 52,
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
                   color: colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
                   place.icon,
-                  size: 28,
+                  size: 25,
                   color: colorScheme.onPrimaryContainer,
                 ),
               ),
@@ -791,35 +1409,70 @@ class _AccessibilityScoreBadge extends StatelessWidget {
 }
 
 class _SearchPrompt extends StatelessWidget {
-  const _SearchPrompt();
+  const _SearchPrompt({
+    required this.recentSearches,
+    required this.onSearchSelected,
+  });
+
+  final List<String> recentSearches;
+  final ValueChanged<String> onSearchSelected;
+
   @override
-  Widget build(BuildContext context) => Center(
-    child: _StateMessage(
-      icon: Icons.travel_explore,
-      title: 'Find accessible places',
-      message: 'Enter a place name, category, district, or city above.',
+  Widget build(BuildContext context) => SingleChildScrollView(
+    child: Column(
+      children: [
+        _StateMessage(
+          icon: Icons.travel_explore,
+          title: 'Find accessible places',
+          message: 'Enter a place name, category, district, or city above.',
+        ),
+        if (recentSearches.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _SearchSuggestionChips(
+            title: 'Recent searches',
+            suggestions: recentSearches,
+            onSelected: onSearchSelected,
+          ),
+        ],
+      ],
     ),
   );
 }
 
 class _NoResults extends StatelessWidget {
-  const _NoResults({required this.query, required this.onClear});
+  const _NoResults({
+    required this.query,
+    required this.suggestions,
+    required this.onClear,
+    required this.onSuggestionSelected,
+  });
+
   final String query;
+  final List<String> suggestions;
   final VoidCallback onClear;
+  final ValueChanged<String> onSuggestionSelected;
 
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
-    child: Center(
-      child: _StateMessage(
-        icon: Icons.search_off,
-        title: 'No accessible places found',
-        message: 'We could not find a public place matching "$query".',
-        action: OutlinedButton.icon(
-          onPressed: onClear,
-          icon: const Icon(Icons.refresh),
-          label: const Text('Clear search'),
+    child: Column(
+      children: [
+        _StateMessage(
+          icon: Icons.search_off,
+          title: 'No accessible places found',
+          message: 'We could not find a public place matching "$query".',
+          action: OutlinedButton.icon(
+            onPressed: onClear,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Clear search'),
+          ),
         ),
-      ),
+        const SizedBox(height: 16),
+        _SearchSuggestionChips(
+          title: 'Try one of these',
+          suggestions: suggestions,
+          onSelected: onSuggestionSelected,
+        ),
+      ],
     ),
   );
 }
