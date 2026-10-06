@@ -4,6 +4,10 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>AccessLink needs camera access to take photos of accessibility features.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>AccessLink needs photo library access to upload photos of accessibility features.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

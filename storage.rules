@@ -1,0 +1,20 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Photos stored by placeId
+    match /places/{placeId}/photos/{fileName} {
+      // Anyone can view accessibility photos
+      allow read: if true;
+
+      // Only authenticated users can upload photos with constraints:
+      // 1. File size must be under 5 MB (5 * 1024 * 1024 bytes)
+      // 2. Content type must be an image (jpeg, png, webp)
+      allow write: if request.auth != null
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/(jpeg|png|webp)');
+
+      // User who uploaded can delete, or admin
+      allow delete: if request.auth != null;
+    }
+  }
+}

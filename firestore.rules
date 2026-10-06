@@ -1,0 +1,110 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.admin == true;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Places Collection
+    match /places/{placeId} {
+      // Any user can read place information
+      allow read: if true;
+
+      // Only administrators can create new places or delete places
+      allow create: if isAdmin() || (
+        isAuthenticated() &&
+        request.resource.data.keys().hasOnly(['averageScore', 'ratingCount']) &&
+        request.resource.data.averageScore is number &&
+        request.resource.data.averageScore >= 1.0 &&
+        request.resource.data.averageScore <= 5.0 &&
+        request.resource.data.ratingCount is int &&
+        request.resource.data.ratingCount >= 1
+      );
+
+      // Updates: Admins can update all fields (including verification & corrections).
+      // Regular authenticated users can only update aggregate ratings via the transactional rating service.
+      allow update: if isAdmin() || (
+        isAuthenticated() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['averageScore', 'ratingCount']) &&
+        request.resource.data.averageScore is number &&
+        request.resource.data.averageScore >= 1.0 &&
+        request.resource.data.averageScore <= 5.0 &&
+        request.resource.data.ratingCount is int &&
+        request.resource.data.ratingCount >= 0
+      );
+
+      allow delete: if isAdmin();
+
+      // Accessibility Ratings Subcollection
+      match /accessibility_ratings/{userId} {
+        allow read: if true;
+        allow write: if isOwner(userId) &&
+          request.resource.data.rating is int &&
+          request.resource.data.rating >= 1 &&
+          request.resource.data.rating <= 5 &&
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.placeId == placeId;
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+
+      // Written Reviews Subcollection
+      match /reviews/{userId} {
+        allow read: if true;
+        allow write: if isOwner(userId) &&
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.placeId == placeId &&
+          request.resource.data.content is string &&
+          request.resource.data.content.size() >= 5 &&
+          request.resource.data.content.size() <= 1000;
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+
+      // Photos Subcollection
+      match /photos/{photoId} {
+        allow read: if true;
+        allow create: if isAuthenticated() &&
+          request.resource.data.uploaderUid == request.auth.uid &&
+          request.resource.data.placeId == placeId &&
+          request.resource.data.downloadUrl is string &&
+          request.resource.data.storagePath is string;
+        allow update: if isAuthenticated() &&
+          (resource.data.uploaderUid == request.auth.uid || isAdmin());
+        allow delete: if isAuthenticated() &&
+          (resource.data.uploaderUid == request.auth.uid || isAdmin());
+      }
+    }
+
+    // Reports Collection
+    match /reports/{reportId} {
+      // Admins can read all reports; users can read their own submitted reports
+      allow read: if isAuthenticated() &&
+        (isAdmin() || resource.data.reporterUid == request.auth.uid);
+
+      // Authenticated users can submit a report with initial status 'pending'
+      allow create: if isAuthenticated() &&
+        request.resource.data.reporterUid == request.auth.uid &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.reason is string &&
+        request.resource.data.reason.size() > 0;
+
+      // Only administrators can approve, reject, or update reports
+      allow update, delete: if isAdmin();
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+  }
+}

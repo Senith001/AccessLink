@@ -3,14 +3,29 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 
+import '../core/database/firestore_collections.dart';
 import '../models/place.dart';
 
 class PlaceService {
   static const double _defaultLatitude = 6.9271;
   static const double _defaultLongitude = 79.8612;
 
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
   static const Map<String, List<String>> _categoryMap = {
-    'All': ['restaurant', 'toilets', 'hospital', 'pharmacy', 'fuel', 'bank', 'supermarket', 'bus_stop', 'school', 'parking', 'hotel'],
+    'All': [
+      'restaurant',
+      'toilets',
+      'hospital',
+      'pharmacy',
+      'fuel',
+      'bank',
+      'supermarket',
+      'bus_stop',
+      'school',
+      'parking',
+      'hotel'
+    ],
     'Restaurants': ['restaurant'],
     'Hospitals': ['hospital'],
     'Hotels': ['hotel'],
@@ -25,16 +40,122 @@ class PlaceService {
   };
 
   static const List<Map<String, dynamic>> _fallbackPlaces = [
-    {'name': 'Colombo City Hospital', 'address': 'Galle Road, Colombo', 'categoryName': 'Hospital', 'lat': 6.9271, 'lng': 79.8612},
-    {'name': 'Cinnamon Grand', 'address': 'Colombo 03', 'categoryName': 'Hotel', 'lat': 6.9271, 'lng': 79.8487},
-    {'name': 'Laksala', 'address': 'Kollupitiya', 'categoryName': 'Supermarket', 'lat': 6.9054, 'lng': 79.8533},
-    {'name': 'Avenue Hospital', 'address': 'Ward Place', 'categoryName': 'Hospital', 'lat': 6.9034, 'lng': 79.8746},
-    {'name': 'Colombo Public Toilet', 'address': 'Fort', 'categoryName': 'Washroom', 'lat': 6.9355, 'lng': 79.8437},
-    {'name': 'Kingsbury Restaurant', 'address': 'Marine Drive', 'categoryName': 'Restaurant', 'lat': 6.9255, 'lng': 79.8407},
-    {'name': 'Cargills Food City', 'address': 'Borella', 'categoryName': 'Supermarket', 'lat': 6.9138, 'lng': 79.8789},
-    {'name': 'Bocca Restaurant', 'address': 'Colombo 07', 'categoryName': 'Restaurant', 'lat': 6.9068, 'lng': 79.8544},
+    {
+      'name': 'Colombo City Hospital',
+      'address': 'Galle Road, Colombo',
+      'categoryName': 'Hospital',
+      'lat': 6.9271,
+      'lng': 79.8612,
+      'wheelchair': 'yes',
+      'ramp': 'yes',
+      'elevator': 'yes',
+      'accessibleToilet': 'yes',
+      'accessibleParking': 'yes',
+      'tactilePaving': 'yes',
+      'hearingSupport': 'unknown',
+    },
+    {
+      'name': 'Cinnamon Grand',
+      'address': 'Colombo 03',
+      'categoryName': 'Hotel',
+      'lat': 6.9271,
+      'lng': 79.8487,
+      'wheelchair': 'yes',
+      'ramp': 'yes',
+      'elevator': 'yes',
+      'accessibleToilet': 'yes',
+      'accessibleParking': 'yes',
+      'tactilePaving': 'unknown',
+      'hearingSupport': 'unknown',
+    },
+    {
+      'name': 'Laksala',
+      'address': 'Kollupitiya',
+      'categoryName': 'Supermarket',
+      'lat': 6.9054,
+      'lng': 79.8533,
+      'wheelchair': 'yes',
+      'ramp': 'yes',
+      'elevator': 'unknown',
+      'accessibleToilet': 'unknown',
+      'accessibleParking': 'unknown',
+      'tactilePaving': 'unknown',
+      'hearingSupport': 'unknown',
+    },
+    {
+      'name': 'Avenue Hospital',
+      'address': 'Ward Place',
+      'categoryName': 'Hospital',
+      'lat': 6.9034,
+      'lng': 79.8746,
+      'wheelchair': 'yes',
+      'ramp': 'yes',
+      'elevator': 'yes',
+      'accessibleToilet': 'yes',
+      'accessibleParking': 'yes',
+      'tactilePaving': 'unknown',
+      'hearingSupport': 'unknown',
+    },
+    {
+      'name': 'Colombo Public Toilet',
+      'address': 'Fort',
+      'categoryName': 'Washroom',
+      'lat': 6.9355,
+      'lng': 79.8437,
+      'wheelchair': 'yes',
+      'ramp': 'yes',
+      'elevator': 'no',
+      'accessibleToilet': 'yes',
+      'accessibleParking': 'no',
+      'tactilePaving': 'unknown',
+      'hearingSupport': 'unknown',
+    },
+    {
+      'name': 'Kingsbury Restaurant',
+      'address': 'Marine Drive',
+      'categoryName': 'Restaurant',
+      'lat': 6.9255,
+      'lng': 79.8407,
+      'wheelchair': 'yes',
+      'ramp': 'yes',
+      'elevator': 'yes',
+      'accessibleToilet': 'yes',
+      'accessibleParking': 'unknown',
+      'tactilePaving': 'unknown',
+      'hearingSupport': 'unknown',
+    },
+    {
+      'name': 'Cargills Food City',
+      'address': 'Borella',
+      'categoryName': 'Supermarket',
+      'lat': 6.9138,
+      'lng': 79.8789,
+      'wheelchair': 'yes',
+      'ramp': 'yes',
+      'elevator': 'unknown',
+      'accessibleToilet': 'unknown',
+      'accessibleParking': 'unknown',
+      'tactilePaving': 'unknown',
+      'hearingSupport': 'unknown',
+    },
+    {
+      'name': 'Bocca Restaurant',
+      'address': 'Colombo 07',
+      'categoryName': 'Restaurant',
+      'lat': 6.9068,
+      'lng': 79.8544,
+      'wheelchair': 'yes',
+      'ramp': 'no',
+      'elevator': 'unknown',
+      'accessibleToilet': 'unknown',
+      'accessibleParking': 'unknown',
+      'tactilePaving': 'unknown',
+      'hearingSupport': 'unknown',
+    },
   ];
 
+  /// Fetches places from OpenStreetMap Overpass API, falling back to local dataset.
+  /// Raw OSM and fallback places are marked `isVerified: false` initially.
   Future<List<Place>> getPlaces({
     double? latitude,
     double? longitude,
@@ -56,37 +177,25 @@ class PlaceService {
             tag: tag,
           ));
 
-      final results = await Future.wait(futures).timeout(const Duration(seconds: 12));
+      final results =
+          await Future.wait(futures).timeout(const Duration(seconds: 12));
 
       for (final r in results) {
         places.addAll(r);
       }
     } catch (_) {
-      // If parallel fetch fails/timeout, return empty list so fallback is used below.
+      // If parallel fetch fails/timeout, fallback will be used below.
     }
 
     if (places.isNotEmpty) {
       return places;
     }
 
-    return _fallbackPlaces
-        .map(
-          (item) => Place(
-            id: 'fallback_${item['name']}',
-            name: item['name'] as String,
-            address: item['address'] as String,
-            categoryName: item['categoryName'] as String,
-            location: GeoPoint(
-              item['lat'] as double,
-              item['lng'] as double,
-            ),
-            isVerified: true,
-          ),
-        )
-        .toList();
+    return getFallbackPlaces();
   }
 
   /// Public accessor for the fallback places as `Place` objects.
+  /// Never marks raw fallback places as verified.
   List<Place> getFallbackPlaces() {
     return _fallbackPlaces
         .map(
@@ -99,7 +208,18 @@ class PlaceService {
               item['lat'] as double,
               item['lng'] as double,
             ),
-            isVerified: true,
+            isVerified: false, // Do not automatically label fallback as verified
+            wheelchair: AccessibilityStatus.fromValue(item['wheelchair']),
+            ramp: AccessibilityStatus.fromValue(item['ramp']),
+            elevator: AccessibilityStatus.fromValue(item['elevator']),
+            accessibleToilet:
+                AccessibilityStatus.fromValue(item['accessibleToilet']),
+            accessibleParking:
+                AccessibilityStatus.fromValue(item['accessibleParking']),
+            tactilePaving:
+                AccessibilityStatus.fromValue(item['tactilePaving']),
+            hearingSupport:
+                AccessibilityStatus.fromValue(item['hearingSupport']),
           ),
         )
         .toList();
@@ -127,10 +247,12 @@ class PlaceService {
     ''';
 
     final encodedQuery = Uri.encodeComponent(query);
-    final url = Uri.parse('https://overpass-api.de/api/interpreter?data=$encodedQuery');
+    final url =
+        Uri.parse('https://overpass-api.de/api/interpreter?data=$encodedQuery');
 
     try {
-      final response = await http.get(url).timeout(const Duration(seconds: 10));
+      final response =
+          await http.get(url).timeout(const Duration(seconds: 10));
       if (response.statusCode != 200) {
         return const [];
       }
@@ -143,15 +265,16 @@ class PlaceService {
         final map = Map<String, dynamic>.from(element as Map<dynamic, dynamic>);
         final tags = Map<String, dynamic>.from(map['tags'] ?? const {});
 
-        final latValue = map['lat'] ?? (map['center'] is Map ? map['center']['lat'] : null);
-        final lonValue = map['lon'] ?? (map['center'] is Map ? map['center']['lon'] : null);
+        final latValue =
+            map['lat'] ?? (map['center'] is Map ? map['center']['lat'] : null);
+        final lonValue =
+            map['lon'] ?? (map['center'] is Map ? map['center']['lon'] : null);
 
         if (latValue == null || lonValue == null) {
           continue;
         }
 
-        final categoryValue =
-            tags['amenity'] ??
+        final categoryValue = tags['amenity'] ??
             tags['tourism'] ??
             tags['shop'] ??
             tags['highway'] ??
@@ -160,7 +283,8 @@ class PlaceService {
         final placeName =
             (tags['name'] ?? tags['brand'] ?? tags['operator'] ?? 'Public place')
                 .toString();
-        final address = (tags['addr:street'] ?? 'OpenStreetMap place').toString();
+        final address =
+            (tags['addr:street'] ?? 'OpenStreetMap place').toString();
 
         places.add(
           Place(
@@ -169,7 +293,19 @@ class PlaceService {
             address: address,
             categoryName: _formatCategory(categoryValue.toString()),
             location: GeoPoint(latValue as double, lonValue as double),
-            isVerified: true,
+            isVerified: false, // Raw OSM is NOT automatically verified
+            wheelchair: AccessibilityStatus.fromValue(tags['wheelchair']),
+            ramp: AccessibilityStatus.fromValue(
+                tags['ramp'] ?? tags['wheelchair:ramp']),
+            elevator: AccessibilityStatus.fromValue(tags['elevator']),
+            accessibleToilet: AccessibilityStatus.fromValue(
+                tags['toilets:wheelchair'] ?? tags['wheelchair:toilets']),
+            accessibleParking: AccessibilityStatus.fromValue(
+                tags['parking:disabled'] ?? tags['capacity:disabled']),
+            tactilePaving:
+                AccessibilityStatus.fromValue(tags['tactile_paving']),
+            hearingSupport: AccessibilityStatus.fromValue(
+                tags['hearing_loop'] ?? tags['hearing_aid']),
           ),
         );
       }
@@ -180,9 +316,56 @@ class PlaceService {
     }
   }
 
+  /// Synchronizes a place with approved corrections and verification data from Firestore.
+  /// Ensures cached or fallback data NEVER silently overrides approved Firestore records.
+  Future<Place> syncPlaceWithFirestore(Place place) async {
+    try {
+      final doc = await _firestore
+          .collection(FirestoreCollections.places)
+          .doc(place.id)
+          .get();
+
+      if (!doc.exists || doc.data() == null) {
+        return place;
+      }
+
+      final data = doc.data()!;
+      return place.copyWith(
+        isVerified: data['isVerified'] == true ? true : place.isVerified,
+        correctedAccessibilityInfo:
+            data['correctedAccessibilityInfo'] as String? ??
+                place.correctedAccessibilityInfo,
+        wheelchair: data.containsKey('wheelchair')
+            ? AccessibilityStatus.fromValue(data['wheelchair'])
+            : place.wheelchair,
+        ramp: data.containsKey('ramp')
+            ? AccessibilityStatus.fromValue(data['ramp'])
+            : place.ramp,
+        elevator: data.containsKey('elevator')
+            ? AccessibilityStatus.fromValue(data['elevator'])
+            : place.elevator,
+        accessibleToilet: data.containsKey('accessibleToilet')
+            ? AccessibilityStatus.fromValue(data['accessibleToilet'])
+            : place.accessibleToilet,
+        accessibleParking: data.containsKey('accessibleParking')
+            ? AccessibilityStatus.fromValue(data['accessibleParking'])
+            : place.accessibleParking,
+        tactilePaving: data.containsKey('tactilePaving')
+            ? AccessibilityStatus.fromValue(data['tactilePaving'])
+            : place.tactilePaving,
+        hearingSupport: data.containsKey('hearingSupport')
+            ? AccessibilityStatus.fromValue(data['hearingSupport'])
+            : place.hearingSupport,
+      );
+    } catch (_) {
+      return place;
+    }
+  }
+
   Future<List<Place>> getPlacesByCategory(String category) async {
     final normalizedCategory = category.trim();
-    if (normalizedCategory.isEmpty || normalizedCategory.toLowerCase() == 'all') {
+    if (normalizedCategory.isEmpty ||
+        normalizedCategory.toLowerCase() == 'all') {
       return getPlaces();
     }
 

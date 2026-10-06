@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import 'firebase_options.dart';
-import 'screens/login_screen.dart';
+import 'screens/auth_gate.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,7 +22,14 @@ class AccessLinkApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'AccessLink',
-      home: const LoginScreen(),
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF1976D2),
+          primary: const Color(0xFF1976D2),
+        ),
+        useMaterial3: true,
+      ),
+      home: const AuthGate(),
     );
   }
 }
