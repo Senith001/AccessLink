@@ -177,8 +177,8 @@ void main() {
             {
               'name': 'Far Library',
               'category': 'Library',
-              'latitude': 7.2906,
-              'longitude': 80.6337,
+              'latitude': 6.94,
+              'longitude': 79.87,
             },
             {
               'name': 'Near Hospital',

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../core/database/firestore_collections.dart';
@@ -21,14 +22,63 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   List<SearchPlace> _places = const [];
   bool _isLoadingPlaces = true;
+  SearchPlaceLocation? _currentLocation;
+  bool _isRefreshingLocation = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadPlaces();
+    _refreshLocation();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshLocation();
+  }
+
+  Future<void> _refreshLocation() async {
+    if (_isRefreshingLocation || !mounted) return;
+    _isRefreshingLocation = true;
+    try {
+      final permission = await Geolocator.checkPermission();
+      final allowed =
+          permission == LocationPermission.always ||
+          permission == LocationPermission.whileInUse;
+      // Home reuses permission; Nearby handles the first permission request.
+      if (!allowed || !await Geolocator.isLocationServiceEnabled()) {
+        if (mounted) setState(() => _currentLocation = null);
+        return;
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+      if (!mounted) return;
+      setState(() {
+        _currentLocation = SearchPlaceLocation(
+          label: 'Your location',
+          latitude: position.latitude,
+          longitude: position.longitude,
+        );
+      });
+    } catch (_) {
+      // A GPS failure should not prevent Home from opening.
+    } finally {
+      _isRefreshingLocation = false;
+    }
   }
 
   Future<void> _loadPlaces() async {
@@ -65,18 +115,22 @@ class _HomeScreenState extends State<HomeScreen> {
     _openSearchWithFilter(context, null);
   }
 
-  void _openNearbyPlaces(BuildContext context) {
-    Navigator.push(
+  Future<void> _openNearbyPlaces(BuildContext context) async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) =>
             NearbyPlacesScreen(initialPlaces: widget.initialPlaces),
       ),
     );
+    await _refreshLocation();
   }
 
-  void _openSearchWithFilter(BuildContext context, String? filter) {
-    Navigator.push(
+  Future<void> _openSearchWithFilter(
+    BuildContext context,
+    String? filter,
+  ) async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => SearchResultsScreen(
@@ -86,6 +140,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+    await _refreshLocation();
   }
 
   @override
@@ -132,12 +187,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 18),
                     _MapPreview(
                       places: _places,
-                      onOpenMap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const MapScreen(),
-                        ),
-                      ),
+                      currentLocation: _currentLocation,
+                      onOpenMap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const MapScreen(),
+                          ),
+                        );
+                        await _refreshLocation();
+                      },
                     ),
                     const SizedBox(height: 18),
                     if (_isLoadingPlaces)
@@ -157,6 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 10),
                       _NearbyPlacesList(
                         places: _places,
+                        currentLocation: _currentLocation,
                         onOpenDetails: (place) => Navigator.push(
                           context,
                           PlaceDetailsScreen.route(placeId: place.id),
@@ -348,14 +408,22 @@ class _NearbySectionTitle extends StatelessWidget {
 }
 
 class _NearbyPlacesList extends StatelessWidget {
-  const _NearbyPlacesList({required this.places, this.onOpenDetails});
+  const _NearbyPlacesList({
+    required this.places,
+    this.currentLocation,
+    this.onOpenDetails,
+  });
 
   final List<SearchPlace> places;
+  final SearchPlaceLocation? currentLocation;
   final void Function(SearchPlace place)? onOpenDetails;
 
   @override
   Widget build(BuildContext context) {
-    final nearbyPlaces = searchPlacesSortedByDistance(places);
+    final location = currentLocation;
+    final suggestedPlaces = location == null
+        ? places
+        : searchPlacesSortedByDistance(places, from: location);
 
     return SizedBox(
       height: 160,
@@ -372,10 +440,12 @@ class _NearbyPlacesList extends StatelessWidget {
           scrollDirection: Axis.horizontal,
           primary: false,
           physics: const BouncingScrollPhysics(),
-          itemCount: nearbyPlaces.length,
+          itemCount: suggestedPlaces.length,
           separatorBuilder: (context, index) => const SizedBox(width: 12),
           itemBuilder: (context, index) => _NearbyPlaceCard(
-            place: nearbyPlaces[index],
+            place: suggestedPlaces[index],
+            showDistance:
+                location != null && suggestedPlaces[index].hasCoordinates,
             onOpenDetails: onOpenDetails,
           ),
         ),
@@ -446,21 +516,35 @@ class _AccessibilityShortcuts extends StatelessWidget {
 }
 
 class _MapPreview extends StatelessWidget {
-  const _MapPreview({required this.places, required this.onOpenMap});
+  const _MapPreview({
+    required this.places,
+    required this.onOpenMap,
+    this.currentLocation,
+  });
 
   final List<SearchPlace> places;
   final VoidCallback onOpenMap;
+  final SearchPlaceLocation? currentLocation;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final mappedPlaces = places.where((place) => place.hasCoordinates).toList();
-    final center = mappedPlaces.isNotEmpty
+    final location = currentLocation;
+    final mappedPlaces =
+        (location == null
+                ? places
+                : searchPlacesSortedByDistance(places, from: location))
+            .where((place) => place.hasCoordinates)
+            .toList();
+    final fallbackCenter = mappedPlaces.isNotEmpty
         ? LatLng(mappedPlaces.first.latitude!, mappedPlaces.first.longitude!)
         : LatLng(
             defaultSearchLocation.latitude,
             defaultSearchLocation.longitude,
           );
+    final center = location == null
+        ? fallbackCenter
+        : LatLng(location.latitude, location.longitude);
 
     return Semantics(
       button: true,
@@ -480,6 +564,8 @@ class _MapPreview extends StatelessWidget {
             children: [
               AbsorbPointer(
                 child: FlutterMap(
+                  // initialCenter applies only on creation; refresh on GPS changes.
+                  key: ValueKey(center),
                   options: MapOptions(
                     initialCenter: center,
                     initialZoom: mappedPlaces.isEmpty ? 12 : 13,
@@ -495,36 +581,37 @@ class _MapPreview extends StatelessWidget {
                     ),
                     MarkerLayer(
                       markers: [
-                        Marker(
-                          point: LatLng(
-                            defaultSearchLocation.latitude,
-                            defaultSearchLocation.longitude,
-                          ),
-                          width: 34,
-                          height: 34,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: colorScheme.primary,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: colorScheme.onPrimary,
-                                width: 3,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.18),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 2),
+                        if (location != null)
+                          Marker(
+                            point: LatLng(
+                              location.latitude,
+                              location.longitude,
+                            ),
+                            width: 34,
+                            height: 34,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: colorScheme.primary,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: colorScheme.onPrimary,
+                                  width: 3,
                                 ),
-                              ],
-                            ),
-                            child: Icon(
-                              Icons.my_location,
-                              size: 16,
-                              color: colorScheme.onPrimary,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.18),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                Icons.my_location,
+                                size: 16,
+                                color: colorScheme.onPrimary,
+                              ),
                             ),
                           ),
-                        ),
                         ...mappedPlaces
                             .take(8)
                             .map(
@@ -644,9 +731,14 @@ Color _mapMarkerColor(BuildContext context, String category) {
 }
 
 class _NearbyPlaceCard extends StatelessWidget {
-  const _NearbyPlaceCard({required this.place, this.onOpenDetails});
+  const _NearbyPlaceCard({
+    required this.place,
+    this.showDistance = false,
+    this.onOpenDetails,
+  });
 
   final SearchPlace place;
+  final bool showDistance;
   final void Function(SearchPlace place)? onOpenDetails;
 
   @override
@@ -685,7 +777,12 @@ class _NearbyPlaceCard extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                '${place.category} . ${place.distance}',
+                showDistance
+                    ? '${place.category} . ${place.distance}'
+                    : [
+                        place.category,
+                        if (place.city.isNotEmpty) place.city,
+                      ].join(' . '),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(

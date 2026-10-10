@@ -62,6 +62,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   _SearchSortMode _sortMode = _SearchSortMode.nearest;
   String? _selectedCategory;
   late bool _nearbyOnly;
+  double _nearbyRadiusKm = 10;
 
   static const _historyKey = 'search_discovery_history';
 
@@ -109,13 +110,23 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       final matchesFilters = _selectedFilters.every(
         place.accessibilityFeatures.contains,
       );
+      final distance = _nearbyLocation == null
+          ? null
+          : place.distanceFrom(_nearbyLocation!);
+      final matchesNearby =
+          !_nearbyOnly || (distance != null && distance <= _nearbyRadiusKm);
       return matchesText &&
           matchesLocation &&
           matchesCategory &&
-          matchesFilters;
+          matchesFilters &&
+          matchesNearby;
     }).toList();
 
-    final sortedPlaces = matches.toList();
+    final sortedPlaces = matches.map((place) {
+      return _nearbyLocation == null
+          ? place
+          : place.withDistanceFrom(_nearbyLocation!);
+    }).toList();
     switch (_sortMode) {
       case _SearchSortMode.nearest:
         return searchPlacesSortedByDistance(
@@ -151,7 +162,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
           _selectedFilters.isEmpty);
 
   List<String> get _activeFilterLabels => [
-    if (_nearbyOnly) 'Nearby',
+    if (_nearbyOnly) 'Within ${_nearbyRadiusKm.round()} km',
     if (_locationController.text.trim().isNotEmpty)
       'Location: ${_locationController.text.trim()}',
     if (_selectedCategory != null) 'Category: $_selectedCategory',
@@ -159,7 +170,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   ];
 
   String get _areaLabel {
-    if (_nearbyOnly) return 'Near me';
+    if (_nearbyOnly) return 'Near me, within ${_nearbyRadiusKm.round()} km';
     final area = _locationController.text.trim();
     if (area.isNotEmpty) return area;
     return 'Any area';
@@ -323,6 +334,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                       _NearbyStatusCard(
                         hasLocation: _nearbyLocation != null,
                         isLoading: _isLoadingLocation,
+                        radiusKm: _nearbyRadiusKm,
                         onRefresh: _requestCurrentLocation,
                         onOpenMap: _openMap,
                       ),
@@ -498,10 +510,12 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   List<String> get _locationOptions {
     final locations = <String>{};
     for (final place in _places) {
-      if (place.city.isNotEmpty) locations.add(place.city);
-      if (place.district.isNotEmpty) locations.add(place.district);
+      if (place.city.trim().isNotEmpty) locations.add(place.city.trim());
+      if (place.district.trim().isNotEmpty) {
+        locations.add(place.district.trim());
+      }
     }
-    return (locations.toList()..sort()).take(8).toList();
+    return locations.toList()..sort();
   }
 
   List<String> get _areaOptions {
@@ -668,6 +682,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   }
 
   Future<void> _openFilterList() async {
+    var areaQuery = '';
+    var showAllAreas = false;
+    const previewAreaCount = 6;
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -675,10 +692,32 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
+            final visibleLocations = _locationOptions
+                .where(
+                  (location) => location.toLowerCase().contains(
+                    areaQuery.trim().toLowerCase(),
+                  ),
+                )
+                .toList();
+            final collapseAreas = areaQuery.trim().isEmpty && !showAllAreas;
+            final displayedLocations = collapseAreas
+                ? visibleLocations.take(previewAreaCount).toList()
+                : visibleLocations;
+            final selectedArea = _locationController.text;
+            if (collapseAreas &&
+                visibleLocations.contains(selectedArea) &&
+                !displayedLocations.contains(selectedArea)) {
+              displayedLocations[displayedLocations.length - 1] = selectedArea;
+            }
             return SafeArea(
               child: ListView(
                 shrinkWrap: true,
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  4,
+                  20,
+                  24 + MediaQuery.viewInsetsOf(context).bottom,
+                ),
                 children: [
                   Row(
                     children: [
@@ -717,12 +756,31 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                     value: _nearbyOnly,
                     secondary: const Icon(Icons.near_me_outlined),
                     title: const Text('Nearby places'),
-                    subtitle: const Text('Sort results from your location'),
+                    subtitle: const Text('Use your current location'),
                     onChanged: (selected) {
                       _toggleNearbyOnly(selected);
                       setSheetState(() {});
                     },
                   ),
+                  if (_nearbyOnly) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text('Within ${_nearbyRadiusKm.round()} km'),
+                    ),
+                    Slider(
+                      value: _nearbyRadiusKm,
+                      min: 5,
+                      max: 50,
+                      divisions: 9,
+                      label: '${_nearbyRadiusKm.round()} km',
+                      semanticFormatterCallback: (value) =>
+                          'Within ${value.round()} kilometres',
+                      onChanged: (value) {
+                        setState(() => _nearbyRadiusKm = value);
+                        setSheetState(() {});
+                      },
+                    ),
+                  ],
                   if (_locationOptions.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Text(
@@ -731,11 +789,23 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                           ?.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 8),
+                    TextField(
+                      decoration: const InputDecoration(
+                        hintText: 'Search district or city',
+                        prefixIcon: Icon(Icons.search),
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (value) =>
+                          setSheetState(() => areaQuery = value),
+                    ),
+                    const SizedBox(height: 8),
+                    if (visibleLocations.isEmpty)
+                      const Text('No matching areas'),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        for (final location in _locationOptions)
+                        for (final location in displayedLocations)
                           ChoiceChip(
                             avatar: const Icon(
                               Icons.location_city_outlined,
@@ -750,6 +820,25 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                           ),
                       ],
                     ),
+                    if (areaQuery.trim().isEmpty &&
+                        visibleLocations.length > previewAreaCount)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: () =>
+                              setSheetState(() => showAllAreas = !showAllAreas),
+                          icon: Icon(
+                            showAllAreas
+                                ? Icons.expand_less
+                                : Icons.expand_more,
+                          ),
+                          label: Text(
+                            showAllAreas
+                                ? 'Show less'
+                                : 'Show more (${visibleLocations.length - displayedLocations.length})',
+                          ),
+                        ),
+                      ),
                   ],
                   if (_categoryOptions.isNotEmpty) ...[
                     const SizedBox(height: 18),
@@ -1026,12 +1115,14 @@ class _NearbyStatusCard extends StatelessWidget {
   const _NearbyStatusCard({
     required this.hasLocation,
     required this.isLoading,
+    required this.radiusKm,
     required this.onRefresh,
     required this.onOpenMap,
   });
 
   final bool hasLocation;
   final bool isLoading;
+  final double radiusKm;
   final VoidCallback onRefresh;
   final VoidCallback onOpenMap;
 
@@ -1066,7 +1157,7 @@ class _NearbyStatusCard extends StatelessWidget {
               children: [
                 Text(
                   hasLocation
-                      ? 'Showing places near you'
+                      ? 'Places within ${radiusKm.round()} km'
                       : 'Finding places near you',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: colorScheme.onPrimaryContainer,
