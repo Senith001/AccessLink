@@ -51,10 +51,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     });
 
     try {
-      final credential = await _authService.registerUser(
-        email,
-        password,
-      );
+      final credential = await _authService.registerUser(email, password);
 
       if (!mounted) return;
 
@@ -64,9 +61,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         if (name.isEmpty) {
           name = email; // Fallback to email if name is empty
         }
-        
+
         String phone = _phoneController.text.trim();
-        
+
         await _userRepository.createUser(
           uid: credential.user!.uid,
           name: name,
@@ -78,13 +75,17 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         // If Firestore write fails after successful auth, show warning but don't crash
         debugPrint('Failed to save user profile: ${e.message}');
         if (mounted) {
-          _showMessage('Account created, but saving your profile failed. Please update it later.');
+          _showMessage(
+            'Account created, but saving your profile failed. Please update it later.',
+          );
         }
       } catch (e) {
         // Generic error for any other exceptions during Firestore write
         debugPrint('Failed to save user profile: $e');
         if (mounted) {
-          _showMessage('Account created, but saving your profile failed. Please update it later.');
+          _showMessage(
+            'Account created, but saving your profile failed. Please update it later.',
+          );
         }
       }
 
@@ -131,11 +132,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-      ),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -297,5 +295,4 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       ),
     );
   }
-
 }

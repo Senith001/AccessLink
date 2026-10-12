@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -434,15 +435,14 @@ class _MapScreenState extends State<MapScreen> {
                                         context,
                                         'Could not open directions. Please try again.',
                                       );
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Could not open directions. Please try again.',
-                                          ),
-                                        ),
-                                      );
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Could not open directions. Please try again.',
+                                              ),
+                                            ),
+                                          );
                                     }
                                   },
                                   icon: const Icon(Icons.directions, size: 22),
@@ -637,9 +637,9 @@ class _MapScreenState extends State<MapScreen> {
                                     Container(
                                       padding: const EdgeInsets.all(6),
                                       decoration: BoxDecoration(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.surfaceContainerLow,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .surfaceContainerLow,
                                         shape: BoxShape.circle,
                                       ),
                                       child: Icon(

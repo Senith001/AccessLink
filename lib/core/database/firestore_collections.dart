@@ -7,4 +7,5 @@ class FirestoreCollections {
   static const String contributions = 'contributions';
   static const String verificationRecords = 'verification_records';
   static const String reports = 'reports';
+  static const String photos = 'photos';
 }

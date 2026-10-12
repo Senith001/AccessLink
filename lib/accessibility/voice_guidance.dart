@@ -27,9 +27,7 @@ class VoiceGuidance extends ChangeNotifier {
 
   void _reportError([String? message]) {
     if (_disposed || !_enabled) return;
-    _error =
-        message ??
-        'Voice guidance is unavailable. Check your device’s text-to-speech settings and try Test voice again.';
+    _error = message ?? 'Voice guidance is unavailable. Check your device’s text-to-speech settings and try Test voice again.';
     notifyListeners();
   }
 

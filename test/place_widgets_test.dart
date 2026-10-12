@@ -11,12 +11,12 @@ import 'package:accesslink/widgets/place/place_action_buttons.dart';
 
 void main() {
   group('RatingStars Widget', () {
-    testWidgets('shows "No ratings yet" when count is 0', (WidgetTester tester) async {
+    testWidgets('shows "No ratings yet" when count is 0', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: Scaffold(
-            body: RatingStars(average: 0, count: 0),
-          ),
+          home: Scaffold(body: RatingStars(average: 0, count: 0)),
         ),
       );
       await tester.pump();
@@ -24,12 +24,12 @@ void main() {
       expect(find.text('No ratings yet'), findsOneWidget);
     });
 
-    testWidgets('shows rating average and count when available', (WidgetTester tester) async {
+    testWidgets('shows rating average and count when available', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: Scaffold(
-            body: RatingStars(average: 4.5, count: 10),
-          ),
+          home: Scaffold(body: RatingStars(average: 4.5, count: 10)),
         ),
       );
       await tester.pump();
@@ -40,12 +40,12 @@ void main() {
   });
 
   group('VerifiedBadge Widget', () {
-    testWidgets('shows "Verified" when isVerified is true', (WidgetTester tester) async {
+    testWidgets('shows "Verified" when isVerified is true', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: Scaffold(
-            body: VerifiedBadge(isVerified: true),
-          ),
+          home: Scaffold(body: VerifiedBadge(isVerified: true)),
         ),
       );
       await tester.pump();
@@ -53,12 +53,12 @@ void main() {
       expect(find.text('Verified'), findsOneWidget);
     });
 
-    testWidgets('shows "Not verified" when isVerified is false', (WidgetTester tester) async {
+    testWidgets('shows "Not verified" when isVerified is false', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: Scaffold(
-            body: VerifiedBadge(isVerified: false),
-          ),
+          home: Scaffold(body: VerifiedBadge(isVerified: false)),
         ),
       );
       await tester.pump();
@@ -68,7 +68,9 @@ void main() {
   });
 
   group('AccessibilityFeatureTile Widget', () {
-    testWidgets('shows "Available" for available feature', (WidgetTester tester) async {
+    testWidgets('shows "Available" for available feature', (
+      WidgetTester tester,
+    ) async {
       const feature = AccessibilityFeature(
         available: true,
         notes: '',
@@ -91,7 +93,9 @@ void main() {
       expect(find.text('Available'), findsOneWidget);
     });
 
-    testWidgets('shows "Not available" for unavailable feature', (WidgetTester tester) async {
+    testWidgets('shows "Not available" for unavailable feature', (
+      WidgetTester tester,
+    ) async {
       const feature = AccessibilityFeature(
         available: false,
         notes: '',
@@ -114,7 +118,9 @@ void main() {
       expect(find.text('Not available'), findsOneWidget);
     });
 
-    testWidgets('shows unverified text for available but unverified feature', (WidgetTester tester) async {
+    testWidgets('shows unverified text for available but unverified feature', (
+      WidgetTester tester,
+    ) async {
       const feature = AccessibilityFeature(
         available: true,
         notes: '',
@@ -139,12 +145,12 @@ void main() {
   });
 
   group('PhotoGallery Widget', () {
-    testWidgets('shows "No photos available" when photos list is empty', (WidgetTester tester) async {
+    testWidgets('shows "No photos available" when photos list is empty', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: Scaffold(
-            body: PhotoGallery(photos: []),
-          ),
+          home: Scaffold(body: PhotoGallery(photos: [])),
         ),
       );
       await tester.pump();
@@ -154,18 +160,14 @@ void main() {
   });
 
   group('ContactTile Widget', () {
-    testWidgets('shows "Contact details not available" for empty contact', (WidgetTester tester) async {
-      const contact = ContactInfo(
-        phone: '',
-        email: '',
-        website: '',
-      );
+    testWidgets('shows "Contact details not available" for empty contact', (
+      WidgetTester tester,
+    ) async {
+      const contact = ContactInfo(phone: '', email: '', website: '');
 
       await tester.pumpWidget(
         const MaterialApp(
-          home: Scaffold(
-            body: ContactTile(contact: contact),
-          ),
+          home: Scaffold(body: ContactTile(contact: contact)),
         ),
       );
       await tester.pump();
@@ -175,12 +177,12 @@ void main() {
   });
 
   group('OpeningHoursTile Widget', () {
-    testWidgets('shows "Opening hours not available" for empty hours', (WidgetTester tester) async {
+    testWidgets('shows "Opening hours not available" for empty hours', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: Scaffold(
-            body: OpeningHoursTile(openingHours: {}),
-          ),
+          home: Scaffold(body: OpeningHoursTile(openingHours: {})),
         ),
       );
       await tester.pump();
@@ -190,14 +192,13 @@ void main() {
   });
 
   group('PlaceActionButtons Widget', () {
-    testWidgets('renders both action button labels', (WidgetTester tester) async {
+    testWidgets('renders both action button labels', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: PlaceActionButtons(
-              onGetRoute: () {},
-              onReadReviews: () {},
-            ),
+            body: PlaceActionButtons(onGetRoute: () {}, onReadReviews: () {}),
           ),
         ),
       );

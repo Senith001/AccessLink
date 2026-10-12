@@ -60,7 +60,10 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
                         return _SavedPlaceTile(
                           place: place,
                           onRemove: () => _removeFavorite(place),
-                          onOpenDetails: () => Navigator.push(context, PlaceDetailsScreen.route(placeId: place.id)),
+                          onOpenDetails: () => Navigator.push(
+                            context,
+                            PlaceDetailsScreen.route(placeId: place.id),
+                          ),
                         );
                       },
                     );

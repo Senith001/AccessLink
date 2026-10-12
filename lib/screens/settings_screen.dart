@@ -1,16 +1,76 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../accessibility/accessibility_settings.dart';
 import '../accessibility/voice_guidance.dart';
+import '../core/database/firestore_collections.dart';
+import 'admin_reports_screen.dart';
+import 'login_screen.dart';
+import 'logout_screen.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  User? _currentUser;
+  String _userRole = 'user';
+  String _userName = '';
+  bool _isLoadingUser = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserInfo();
+  }
+
+  Future<void> _loadUserInfo() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+        });
+      }
+
+      if (user != null) {
+        if (mounted) setState(() => _isLoadingUser = true);
+        try {
+          final doc = await FirebaseFirestore.instance
+              .collection(FirestoreCollections.users)
+              .doc(user.uid)
+              .get();
+
+          if (doc.exists && mounted) {
+            setState(() {
+              _userRole = doc.data()?['role'] as String? ?? 'user';
+              _userName =
+                  doc.data()?['name'] as String? ?? user.displayName ?? '';
+              _isLoadingUser = false;
+            });
+          } else if (mounted) {
+            setState(() => _isLoadingUser = false);
+          }
+        } catch (_) {
+          if (mounted) setState(() => _isLoadingUser = false);
+        }
+      }
+    } catch (_) {
+      // Firebase not initialized in unit/widget tests
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final settings = AccessibilityScope.of(context);
     final theme = Theme.of(context);
     final voice = VoiceGuidanceScope.of(context);
+    final isStaff = _userRole == 'admin' || _userRole == 'moderator';
+
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: MediaQuery.textScalerOf(context).scale(22) + 32,
@@ -20,6 +80,168 @@ class SettingsScreen extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
+            // Account & Moderation section
+            Text('Account', style: theme.textTheme.headlineSmall),
+            const SizedBox(height: 12),
+            if (_currentUser == null) ...[
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: theme.colorScheme.outline),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Not Signed In',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Sign in to submit accessibility ratings, write reviews, upload photos, and report issues.',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const LoginScreen(),
+                            ),
+                          ).then((_) => _loadUserInfo());
+                        },
+                        icon: const Icon(Icons.login),
+                        label: const Text('Sign In or Register'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ] else ...[
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: theme.colorScheme.outline),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 22,
+                            backgroundColor: theme.colorScheme.primary
+                                .withValues(alpha: 0.15),
+                            child: Icon(
+                              Icons.person,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _userName.isNotEmpty
+                                      ? _userName
+                                      : (_currentUser!.displayName ?? 'User'),
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  _currentUser!.email ?? '',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.7),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isStaff
+                                  ? Colors.purple.shade50
+                                  : Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isStaff
+                                    ? Colors.purple.shade700
+                                    : Colors.blue.shade700,
+                              ),
+                            ),
+                            child: Text(
+                              isStaff ? 'STAFF' : 'MEMBER',
+                              style: TextStyle(
+                                color: isStaff
+                                    ? Colors.purple.shade900
+                                    : Colors.blue.shade900,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      // Admin Moderation Portal tile
+                      if (isStaff) ...[
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            Icons.admin_panel_settings,
+                            color: theme.colorScheme.primary,
+                          ),
+                          title: const Text('Moderation & Reports Review'),
+                          subtitle: const Text(
+                            'Review and moderate reported accessibility discrepancies',
+                          ),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            Navigator.push(context, AdminReportsScreen.route());
+                          },
+                        ),
+                        const Divider(),
+                      ],
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.logout, color: Colors.red),
+                        title: const Text(
+                          'Sign Out',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const LogoutScreen(),
+                            ),
+                          ).then((_) => _loadUserInfo());
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 24),
+
+            // Voice assistance
             Text('Voice assistance', style: theme.textTheme.headlineSmall),
             SwitchListTile(
               key: const ValueKey('voice-guidance-switch'),
@@ -57,6 +279,8 @@ class SettingsScreen extends StatelessWidget {
                 ),
             ],
             const SizedBox(height: 24),
+
+            // Reading & display
             Text('Reading & display', style: theme.textTheme.headlineSmall),
             const SizedBox(height: 12),
             const Text(

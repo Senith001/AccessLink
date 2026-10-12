@@ -294,7 +294,10 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
             places: _results,
             favoriteIds: favoriteIds,
             onToggleFavorite: _toggleFavorite,
-            onOpenDetails: (place) => Navigator.push(context, PlaceDetailsScreen.route(placeId: place.id)),
+            onOpenDetails: (place) => Navigator.push(
+              context,
+              PlaceDetailsScreen.route(placeId: place.id),
+            ),
           );
         },
       );
@@ -302,7 +305,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
 
     return _ResultList(
       places: _results,
-      onOpenDetails: (place) => Navigator.push(context, PlaceDetailsScreen.route(placeId: place.id)),
+      onOpenDetails: (place) =>
+          Navigator.push(context, PlaceDetailsScreen.route(placeId: place.id)),
     );
   }
 

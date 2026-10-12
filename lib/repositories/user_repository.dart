@@ -1,11 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../core/database/firestore_collections.dart';
 
 class UserRepository {
   final FirebaseFirestore _firestore;
 
   UserRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   Future<void> createUser({
     required String uid,

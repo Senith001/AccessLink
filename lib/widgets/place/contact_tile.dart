@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 import '../../models/place_detail.dart';
 
 class ContactTile extends StatelessWidget {
   final ContactInfo contact;
 
-  const ContactTile({
-    super.key,
-    required this.contact,
-  });
+  const ContactTile({super.key, required this.contact});
 
   Future<void> _launchUrl(BuildContext context, String url) async {
     try {
@@ -36,7 +34,7 @@ class ContactTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     if (!contact.hasAny) {
       return Container(
         padding: const EdgeInsets.all(16),
@@ -57,9 +55,8 @@ class ContactTile extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   'Contact',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -96,9 +93,8 @@ class ContactTile extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   'Contact',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -125,7 +121,8 @@ class ContactTile extends StatelessWidget {
                   icon: Icons.language,
                   label: contact.website,
                   semanticsLabel: 'Visit website ${contact.website}',
-                  onTap: () => _launchUrl(context, _ensureHttpsScheme(contact.website)),
+                  onTap: () =>
+                      _launchUrl(context, _ensureHttpsScheme(contact.website)),
                   isLast: true,
                 ),
             ],
@@ -154,7 +151,7 @@ class _ContactRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     return Semantics(
       button: true,
       label: semanticsLabel,
@@ -164,12 +161,14 @@ class _ContactRow extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 48),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            border: isLast ? null : Border(
-              bottom: BorderSide(
-                color: colorScheme.outline.withValues(alpha: 0.3),
-                width: 1,
-              ),
-            ),
+            border: isLast
+                ? null
+                : Border(
+                    bottom: BorderSide(
+                      color: colorScheme.outline.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                  ),
           ),
           child: Row(
             children: [

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../models/place_detail.dart';
 
 class AccessibilityFeatureTile extends StatelessWidget {
@@ -15,13 +16,13 @@ class AccessibilityFeatureTile extends StatelessWidget {
 
   Color _getStatusColor(BuildContext context, bool isHighContrast) {
     if (feature.available) {
-      return isHighContrast 
-        ? const Color(0xFF1B5E20) // Darker green for high contrast
-        : Colors.green;
+      return isHighContrast
+          ? const Color(0xFF1B5E20) // Darker green for high contrast
+          : Colors.green;
     } else {
-      return isHighContrast 
-        ? const Color(0xFFE65100) // Darker amber for high contrast
-        : Colors.amber;
+      return isHighContrast
+          ? const Color(0xFFE65100) // Darker amber for high contrast
+          : Colors.amber;
     }
   }
 
@@ -42,10 +43,13 @@ class AccessibilityFeatureTile extends StatelessWidget {
   }
 
   String _getSemanticLabel() {
-    final baseText = '$label: ${feature.available ? "Available" : "Not available"}';
-    final unverifiedText = (feature.available && !feature.verified) ? ', unverified' : '';
+    final baseText =
+        '$label: ${feature.available ? "Available" : "Not available"}';
+    final unverifiedText = (feature.available && !feature.verified)
+        ? ', unverified'
+        : '';
     final notesText = feature.notes.isNotEmpty ? '. ${feature.notes}' : '';
-    
+
     return '$baseText$unverifiedText$notesText';
   }
 
@@ -54,37 +58,27 @@ class AccessibilityFeatureTile extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final isHighContrast = MediaQuery.highContrastOf(context);
     final statusColor = _getStatusColor(context, isHighContrast);
-    
+
     if (feature.notes.isNotEmpty) {
       // Expandable tile for features with notes
       return Semantics(
         label: _getSemanticLabel(),
         child: ExpansionTile(
-          leading: Icon(
-            icon,
-            color: colorScheme.onSurface,
-          ),
+          leading: Icon(icon, color: colorScheme.onSurface),
           title: Text(
             label,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w500,
-            ),
+            style: Theme.of(context).textTheme.bodyLarge
+                ?.copyWith(fontWeight: FontWeight.w500),
           ),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                _getStatusIcon(),
-                color: statusColor,
-                size: 20,
-              ),
+              Icon(_getStatusIcon(), color: statusColor, size: 20),
               const SizedBox(width: 4),
               Text(
                 _getStatusText(),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: statusColor,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: Theme.of(context).textTheme.bodyMedium
+                    ?.copyWith(color: statusColor, fontWeight: FontWeight.w500),
               ),
               const SizedBox(width: 8),
               const Icon(Icons.expand_more),
@@ -113,32 +107,22 @@ class AccessibilityFeatureTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
-              Icon(
-                icon,
-                color: colorScheme.onSurface,
-              ),
+              Icon(icon, color: colorScheme.onSurface),
               const SizedBox(width: 16),
               Expanded(
                 child: Text(
                   label,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: Theme.of(context).textTheme.bodyLarge
+                      ?.copyWith(fontWeight: FontWeight.w500),
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(
-                _getStatusIcon(),
-                color: statusColor,
-                size: 20,
-              ),
+              Icon(_getStatusIcon(), color: statusColor, size: 20),
               const SizedBox(width: 4),
               Text(
                 _getStatusText(),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: statusColor,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: Theme.of(context).textTheme.bodyMedium
+                    ?.copyWith(color: statusColor, fontWeight: FontWeight.w500),
               ),
             ],
           ),

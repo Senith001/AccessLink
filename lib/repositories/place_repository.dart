@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../core/database/firestore_collections.dart';
 import '../models/place_detail.dart';
 
@@ -6,7 +7,7 @@ class PlaceRepository {
   final FirebaseFirestore _firestore;
 
   PlaceRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   Future<PlaceDetail?> getPlaceDetail(String placeId) async {
     try {

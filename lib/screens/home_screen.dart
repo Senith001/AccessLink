@@ -142,7 +142,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 10),
                       _NearbyPlacesList(
                         places: _places,
-                        onOpenDetails: (place) => Navigator.push(context, PlaceDetailsScreen.route(placeId: place.id)),
+                        onOpenDetails: (place) => Navigator.push(
+                          context,
+                          PlaceDetailsScreen.route(placeId: place.id),
+                        ),
                       ),
                     ],
                   ],
@@ -346,10 +349,7 @@ class _NearbySectionTitle extends StatelessWidget {
 }
 
 class _NearbyPlacesList extends StatelessWidget {
-  const _NearbyPlacesList({
-    required this.places,
-    this.onOpenDetails,
-  });
+  const _NearbyPlacesList({required this.places, this.onOpenDetails});
 
   final List<SearchPlace> places;
   final void Function(SearchPlace place)? onOpenDetails;
@@ -364,11 +364,10 @@ class _NearbyPlacesList extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         itemCount: nearbyPlaces.length,
         separatorBuilder: (context, index) => const SizedBox(width: 12),
-        itemBuilder: (context, index) =>
-            _NearbyPlaceCard(
-              place: nearbyPlaces[index],
-              onOpenDetails: onOpenDetails,
-            ),
+        itemBuilder: (context, index) => _NearbyPlaceCard(
+          place: nearbyPlaces[index],
+          onOpenDetails: onOpenDetails,
+        ),
       ),
     );
   }
@@ -448,10 +447,7 @@ class _MapPreview extends StatelessWidget {
 }
 
 class _NearbyPlaceCard extends StatelessWidget {
-  const _NearbyPlaceCard({
-    required this.place,
-    this.onOpenDetails,
-  });
+  const _NearbyPlaceCard({required this.place, this.onOpenDetails});
 
   final SearchPlace place;
   final void Function(SearchPlace place)? onOpenDetails;

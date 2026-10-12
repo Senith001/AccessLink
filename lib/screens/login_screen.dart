@@ -36,11 +36,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final _sw = Stopwatch()..start();
-      await _authService.loginUser(
-        email,
-        password,
+      await _authService.loginUser(email, password);
+      debugPrint(
+        'LOGIN_TIMING: signIn returned after ' +
+            _sw.elapsedMilliseconds.toString() +
+            'ms',
       );
-      debugPrint('LOGIN_TIMING: signIn returned after ' + _sw.elapsedMilliseconds.toString() + 'ms');
 
       if (!mounted) return;
 
@@ -49,11 +50,13 @@ class _LoginScreenState extends State<LoginScreen> {
       // Navigate to the Home shell and remove login from the back stack
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (context) => const BottomNavigationScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const BottomNavigationScreen()),
       );
-      debugPrint('LOGIN_TIMING: navigation issued at ' + _sw.elapsedMilliseconds.toString() + 'ms');
+      debugPrint(
+        'LOGIN_TIMING: navigation issued at ' +
+            _sw.elapsedMilliseconds.toString() +
+            'ms',
+      );
     } on FirebaseAuthException catch (e) {
       debugPrint('AUTH ERROR (login) code=${e.code} msg=${e.message}');
       if (!mounted) return;
@@ -101,11 +104,8 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-      ),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -119,7 +119,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: MediaQuery.textScalerOf(context).scale(22) + 32,
@@ -196,9 +196,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ? const SizedBox(
                         height: 22,
                         width: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                        ),
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Text('Sign In'),
               ),
@@ -225,4 +223,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-

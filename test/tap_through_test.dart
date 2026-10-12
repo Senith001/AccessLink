@@ -7,7 +7,7 @@ void main() {
     test('route returns MaterialPageRoute without pumping widget', () {
       // Test that the route factory method works without triggering Firebase calls
       final route = PlaceDetailsScreen.route(placeId: 'test-place-id');
-      
+
       expect(route, isA<MaterialPageRoute>());
     });
 
@@ -15,16 +15,18 @@ void main() {
       // Since we cannot easily create a PlaceDetail without Firebase dependencies,
       // we'll just test the route creation with a placeId which is simpler
       final route = PlaceDetailsScreen.route(placeId: 'test-id');
-      
+
       expect(route, isA<MaterialPageRoute>());
       expect(route.settings.name, isNull); // Default route name
     });
 
-    testWidgets('navigation observer detects route push', (WidgetTester tester) async {
+    testWidgets('navigation observer detects route push', (
+      WidgetTester tester,
+    ) async {
       // Create a mock navigator observer to track navigation
       final mockObserver = NavigatorObserver();
       final navigatorKey = GlobalKey<NavigatorState>();
-      
+
       await tester.pumpWidget(
         MaterialApp(
           navigatorKey: navigatorKey,

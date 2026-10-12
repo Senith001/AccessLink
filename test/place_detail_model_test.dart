@@ -28,25 +28,24 @@ void main() {
       expect(feature.lastUpdated, isNull);
     });
 
-    test('creates feature with partial map using defaults for missing fields', () {
-      final map = {'available': true};
+    test(
+      'creates feature with partial map using defaults for missing fields',
+      () {
+        final map = {'available': true};
 
-      final feature = AccessibilityFeature.fromMap(map);
+        final feature = AccessibilityFeature.fromMap(map);
 
-      expect(feature.available, isTrue);
-      expect(feature.notes, equals(''));
-      expect(feature.verified, isFalse);
-      expect(feature.lastUpdated, isNull);
-    });
+        expect(feature.available, isTrue);
+        expect(feature.notes, equals(''));
+        expect(feature.verified, isFalse);
+        expect(feature.lastUpdated, isNull);
+      },
+    );
   });
 
   group('DayHours.fromMap', () {
     test('creates hours with open and close times', () {
-      final map = {
-        'open': '09:00',
-        'close': '18:00',
-        'closed': false,
-      };
+      final map = {'open': '09:00', 'close': '18:00', 'closed': false};
 
       final hours = DayHours.fromMap(map);
 
@@ -57,11 +56,7 @@ void main() {
     });
 
     test('creates closed hours when closed is true', () {
-      final map = {
-        'open': '09:00',
-        'close': '18:00',
-        'closed': true,
-      };
+      final map = {'open': '09:00', 'close': '18:00', 'closed': true};
 
       final hours = DayHours.fromMap(map);
 
@@ -69,11 +64,7 @@ void main() {
     });
 
     test('creates closed hours when times are empty', () {
-      final map = {
-        'open': '',
-        'close': '',
-        'closed': false,
-      };
+      final map = {'open': '', 'close': '', 'closed': false};
 
       final hours = DayHours.fromMap(map);
 
@@ -117,8 +108,12 @@ void main() {
 
     test('hasAny returns true when at least one field has value', () {
       final contactWithPhone = ContactInfo.fromMap({'phone': '+1-555-0123'});
-      final contactWithEmail = ContactInfo.fromMap({'email': 'test@example.com'});
-      final contactWithWebsite = ContactInfo.fromMap({'website': 'example.com'});
+      final contactWithEmail = ContactInfo.fromMap({
+        'email': 'test@example.com',
+      });
+      final contactWithWebsite = ContactInfo.fromMap({
+        'website': 'example.com',
+      });
 
       expect(contactWithPhone.hasAny, isTrue);
       expect(contactWithEmail.hasAny, isTrue);
@@ -143,10 +138,13 @@ void main() {
 
     test('featureLabels covers all feature order keys', () {
       expect(PlaceDetail.featureLabels.length, equals(7));
-      
+
       for (final key in PlaceDetail.featureOrder) {
-        expect(PlaceDetail.featureLabels.containsKey(key), isTrue,
-            reason: 'featureLabels missing key: $key');
+        expect(
+          PlaceDetail.featureLabels.containsKey(key),
+          isTrue,
+          reason: 'featureLabels missing key: $key',
+        );
       }
     });
 

@@ -1,28 +1,26 @@
 import 'package:flutter/material.dart';
+
 import '../../models/place_detail.dart';
 
 class OpeningHoursTile extends StatelessWidget {
   final Map<String, DayHours> openingHours;
 
-  const OpeningHoursTile({
-    super.key,
-    required this.openingHours,
-  });
+  const OpeningHoursTile({super.key, required this.openingHours});
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final currentWeekday = DateTime.now().weekday;
-    
+
     // Map Flutter's weekday to our day names
     final dayNames = [
-      'monday',    // 1
-      'tuesday',   // 2
+      'monday', // 1
+      'tuesday', // 2
       'wednesday', // 3
-      'thursday',  // 4
-      'friday',    // 5
-      'saturday',  // 6
-      'sunday',    // 7
+      'thursday', // 4
+      'friday', // 5
+      'saturday', // 6
+      'sunday', // 7
     ];
 
     if (openingHours.isEmpty) {
@@ -37,17 +35,12 @@ class OpeningHoursTile extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(
-                  Icons.schedule,
-                  size: 20,
-                  color: colorScheme.onSurface,
-                ),
+                Icon(Icons.schedule, size: 20, color: colorScheme.onSurface),
                 const SizedBox(width: 8),
                 Text(
                   'Opening hours',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -75,17 +68,12 @@ class OpeningHoursTile extends StatelessWidget {
           // Header
           Row(
             children: [
-              Icon(
-                Icons.schedule,
-                size: 20,
-                color: colorScheme.onSurface,
-              ),
+              Icon(Icons.schedule, size: 20, color: colorScheme.onSurface),
               const SizedBox(width: 8),
               Text(
                 'Opening hours',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -96,15 +84,13 @@ class OpeningHoursTile extends StatelessWidget {
               final index = entry.key;
               final dayKey = entry.value;
               final isToday = (index + 1) == currentWeekday;
-              final dayHours = openingHours[dayKey] ?? const DayHours(
-                open: '',
-                close: '',
-                closed: true,
-              );
-              
+              final dayHours =
+                  openingHours[dayKey] ??
+                  const DayHours(open: '', close: '', closed: true);
+
               // Capitalize first letter of day name
               final displayDay = dayKey[0].toUpperCase() + dayKey.substring(1);
-              
+
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(
@@ -113,19 +99,23 @@ class OpeningHoursTile extends StatelessWidget {
                     Text(
                       displayDay,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-                        color: isToday 
-                          ? colorScheme.primary 
-                          : colorScheme.onSurface,
+                        fontWeight: isToday
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        color: isToday
+                            ? colorScheme.primary
+                            : colorScheme.onSurface,
                       ),
                     ),
                     Text(
                       dayHours.display,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-                        color: isToday 
-                          ? colorScheme.primary 
-                          : colorScheme.onSurface.withValues(alpha: 0.8),
+                        fontWeight: isToday
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        color: isToday
+                            ? colorScheme.primary
+                            : colorScheme.onSurface.withValues(alpha: 0.8),
                       ),
                     ),
                   ],

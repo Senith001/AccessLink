@@ -118,9 +118,8 @@ class PlaceService {
         ),
       );
 
-      final results = await Future.wait(
-        futures,
-      ).timeout(const Duration(seconds: 12));
+      final results = await Future.wait(futures)
+          .timeout(const Duration(seconds: 12));
 
       for (final r in results) {
         places.addAll(r);

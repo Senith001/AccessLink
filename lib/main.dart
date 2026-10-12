@@ -4,7 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 
 import 'firebase_options.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'accessibility/accessibility_settings.dart';
 import 'accessibility/voice_guidance.dart';
 import 'screens/login_screen.dart';
@@ -29,7 +31,7 @@ void main() async {
   } catch (_) {
     // Display controls remain available for this session if storage fails.
   }
-  
+
   // TEMPORARY DEV BYPASS: launch a screen directly via --dart-define=DEV_SCREEN=home. Remove before release. Default (no flag) keeps the normal auth/login flow.
   Widget? devBypassHome;
   if (devScreen == 'home') {
@@ -37,7 +39,7 @@ void main() async {
   } else if (devScreen == 'home-tab') {
     devBypassHome = const HomeScreen();
   }
-  
+
   runApp(
     AccessLinkApp(
       settings: AccessibilitySettings(preferences: preferences),

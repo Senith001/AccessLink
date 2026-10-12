@@ -30,6 +30,32 @@ class AccessibilityFeature {
       lastUpdated: (map['lastUpdated'] as Timestamp?)?.toDate(),
     );
   }
+
+  AccessibilityFeature copyWith({
+    bool? available,
+    String? notes,
+    bool? verified,
+    DateTime? lastUpdated,
+  }) {
+    return AccessibilityFeature(
+      available: available ?? this.available,
+      notes: notes ?? this.notes,
+      verified: verified ?? this.verified,
+      lastUpdated: lastUpdated ?? this.lastUpdated,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'available': available,
+      'notes': notes,
+      'verified': verified,
+      if (lastUpdated != null)
+        'lastUpdated': Timestamp.fromDate(lastUpdated!)
+      else
+        'lastUpdated': FieldValue.serverTimestamp(),
+    };
+  }
 }
 
 class DayHours {
@@ -97,7 +123,7 @@ class PlaceDetail {
     'accessibleParking',
     'tactilePaving',
     'audioSupport',
-    'hearingSupport'
+    'hearingSupport',
   ];
 
   static const Map<String, String> featureLabels = {
@@ -156,41 +182,54 @@ class PlaceDetail {
 
   DateTime? get lastUpdated {
     DateTime? maxFeatureUpdated;
-    
+
     for (final feature in features.values) {
       if (feature.lastUpdated != null) {
-        if (maxFeatureUpdated == null || feature.lastUpdated!.isAfter(maxFeatureUpdated)) {
+        if (maxFeatureUpdated == null ||
+            feature.lastUpdated!.isAfter(maxFeatureUpdated)) {
           maxFeatureUpdated = feature.lastUpdated;
         }
       }
     }
-    
+
     return maxFeatureUpdated ?? updatedAt;
   }
 
-  factory PlaceDetail.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+  factory PlaceDetail.fromFirestore(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final data = doc.data();
     if (data == null) {
       throw Exception('Document data is null');
     }
 
     // Build features map from accessibility data
-    final accessibilityData = data['accessibility'] as Map<String, dynamic>? ?? {};
+    final accessibilityData =
+        data['accessibility'] as Map<String, dynamic>? ?? {};
     final features = <String, AccessibilityFeature>{};
-    
+
     for (final key in featureOrder) {
       features[key] = AccessibilityFeature.fromMap(
-        accessibilityData[key] as Map<String, dynamic>?
+        accessibilityData[key] as Map<String, dynamic>?,
       );
     }
 
     // Build opening hours map
-    final openingHoursData = data['openingHours'] as Map<String, dynamic>? ?? {};
+    final openingHoursData =
+        data['openingHours'] as Map<String, dynamic>? ?? {};
     final openingHours = <String, DayHours>{};
-    
-    for (final day in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']) {
+
+    for (final day in [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ]) {
       openingHours[day] = DayHours.fromMap(
-        openingHoursData[day] as Map<String, dynamic>?
+        openingHoursData[day] as Map<String, dynamic>?,
       );
     }
 
@@ -217,6 +256,48 @@ class PlaceDetail {
       ratingCount: data['ratingCount'] as int? ?? 0,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+    );
+  }
+
+  PlaceDetail copyWith({
+    String? id,
+    String? name,
+    String? description,
+    String? categoryName,
+    String? address,
+    String? district,
+    String? city,
+    GeoPoint? location,
+    List<String>? photos,
+    Map<String, DayHours>? openingHours,
+    ContactInfo? contact,
+    Map<String, AccessibilityFeature>? features,
+    int? accessibilityScore,
+    bool? isVerified,
+    double? ratingAverage,
+    int? ratingCount,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return PlaceDetail(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      categoryName: categoryName ?? this.categoryName,
+      address: address ?? this.address,
+      district: district ?? this.district,
+      city: city ?? this.city,
+      location: location ?? this.location,
+      photos: photos ?? this.photos,
+      openingHours: openingHours ?? this.openingHours,
+      contact: contact ?? this.contact,
+      features: features ?? this.features,
+      accessibilityScore: accessibilityScore ?? this.accessibilityScore,
+      isVerified: isVerified ?? this.isVerified,
+      ratingAverage: ratingAverage ?? this.ratingAverage,
+      ratingCount: ratingCount ?? this.ratingCount,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 }

@@ -24,27 +24,21 @@ class _LogoutScreenState extends State<LogoutScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Logged out successfully.'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Logged out successfully.')));
 
       // Navigate to Login Screen and clear route stack
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(
-          builder: (context) => const LoginScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
         (route) => false,
       );
     } catch (e) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to logout. Please try again.'),
-        ),
+        const SnackBar(content: Text('Failed to logout. Please try again.')),
       );
     } finally {
       if (mounted) {
@@ -65,8 +59,10 @@ class _LogoutScreenState extends State<LogoutScreen> {
           children: [
             // Top App Bar Area
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 12.0,
+              ),
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -203,7 +199,9 @@ class _LogoutScreenState extends State<LogoutScreen> {
                             style: OutlinedButton.styleFrom(
                               backgroundColor: const Color(0xFF76B5D4),
                               side: const BorderSide(
-                                  color: Colors.black, width: 1.8),
+                                color: Colors.black,
+                                width: 1.8,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(30),
                               ),
@@ -243,4 +241,3 @@ class _LogoutScreenState extends State<LogoutScreen> {
     );
   }
 }
-
