@@ -7,6 +7,7 @@ class Place {
   final String categoryName;
   final GeoPoint location;
   final bool isVerified;
+  final Map<String, String> osmTags;
 
   Place({
     required this.id,
@@ -15,7 +16,8 @@ class Place {
     required this.categoryName,
     required this.location,
     required this.isVerified,
-  });
+    Map<String, String> osmTags = const {},
+  }) : osmTags = Map.unmodifiable(osmTags);
 
   factory Place.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;

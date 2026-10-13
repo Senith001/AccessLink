@@ -4,8 +4,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/place.dart';
+import 'map_place_search_service.dart';
 
 class PlaceService {
+  PlaceService({http.Client? client}) : _client = client;
+  final http.Client? _client;
+  Map<String, ({DateTime loadedAt, List<Place> places})>? _cachedPlaces;
+  Map<String, ({DateTime loadedAt, List<Place> places})> get _cache =>
+      _cachedPlaces ??= {};
+  Map<String, Future<List<Place>>>? _pendingRequests;
+  Map<String, Future<List<Place>>> get _pending => _pendingRequests ??= {};
+
   static const double _defaultLatitude = 6.9271;
   static const double _defaultLongitude = 79.8612;
 
@@ -100,36 +109,41 @@ class PlaceService {
     double? longitude,
     double radiusInKm = 3,
     String category = 'All',
+    int maxPlaces = 300,
   }) async {
     final lat = latitude ?? _defaultLatitude;
     final lon = longitude ?? _defaultLongitude;
     final radiusInMeters = (radiusInKm * 1000).round();
 
     final selectedTags = _categoryMap[category] ?? _categoryMap['All']!;
-    final places = <Place>[];
-
+    final limit = maxPlaces.clamp(1, 300);
+    final cacheKey = '$lat|$lon|$radiusInMeters|$category|$limit';
+    final cached = _cache[cacheKey];
+    if (cached != null &&
+        DateTime.now().difference(cached.loadedAt) <
+            const Duration(minutes: 5)) {
+      return cached.places;
+    }
+    final request = _pending.putIfAbsent(
+      cacheKey,
+      () => _fetchNearbyPlaces(
+        latitude: lat,
+        longitude: lon,
+        radiusInMeters: radiusInMeters,
+        selectedTags: selectedTags,
+        maxPlaces: limit,
+      ),
+    );
+    final List<Place> places;
     try {
-      final futures = selectedTags.map(
-        (tag) => _fetchOverpassTags(
-          latitude: lat,
-          longitude: lon,
-          radiusInMeters: radiusInMeters,
-          tag: tag,
-        ),
-      );
-
-      final results = await Future.wait(
-        futures,
-      ).timeout(const Duration(seconds: 12));
-
-      for (final r in results) {
-        places.addAll(r);
-      }
-    } catch (_) {
-      // If parallel fetch fails/timeout, return empty list so fallback is used below.
+      places = await request;
+    } finally {
+      _pending.remove(cacheKey);
     }
 
     if (places.isNotEmpty) {
+      if (_cache.length >= 50) _cache.remove(_cache.keys.first);
+      _cache[cacheKey] = (loadedAt: DateTime.now(), places: places);
       return places;
     }
 
@@ -163,27 +177,66 @@ class PlaceService {
         .toList();
   }
 
+  Future<List<Place>> _fetchNearbyPlaces({
+    required double latitude,
+    required double longitude,
+    required int radiusInMeters,
+    required List<String> selectedTags,
+    required int maxPlaces,
+  }) async {
+    final search = MapPlaceSearchService(client: _client);
+    try {
+      return await search.nearby(
+        latitude: latitude,
+        longitude: longitude,
+        radiusInKm: radiusInMeters / 1000,
+        limit: maxPlaces,
+        categories: selectedTags.map((tag) {
+          final key = tag == 'hotel'
+              ? 'tourism'
+              : tag == 'supermarket'
+              ? 'shop'
+              : tag == 'bus_stop'
+              ? 'highway'
+              : 'amenity';
+          return 'osm.$key.$tag';
+        }).toList(),
+      );
+    } catch (_) {
+      return _fetchOverpassTags(
+        latitude: latitude,
+        longitude: longitude,
+        radiusInMeters: radiusInMeters,
+        selectedTags: selectedTags,
+        maxPlaces: maxPlaces,
+      );
+    } finally {
+      if (_client == null) search.dispose();
+    }
+  }
+
   Future<List<Place>> _fetchOverpassTags({
     required double latitude,
     required double longitude,
     required int radiusInMeters,
-    required String tag,
+    required List<String> selectedTags,
+    required int maxPlaces,
   }) async {
+    // Query only the tag key that actually describes each category.
+    final selectors = selectedTags
+        .map((tag) {
+          final key = tag == 'hotel'
+              ? 'tourism'
+              : tag == 'supermarket'
+              ? 'shop'
+              : tag == 'bus_stop'
+              ? 'highway'
+              : 'amenity';
+          return 'nwr["$key"="$tag"](around:$radiusInMeters,$latitude,$longitude);';
+        })
+        .join('\n');
     final query =
-        '''
-      [out:json][timeout:10];
-      (
-        node["amenity"="$tag"](around:$radiusInMeters,$latitude,$longitude);
-        way["amenity"="$tag"](around:$radiusInMeters,$latitude,$longitude);
-        node["shop"="$tag"](around:$radiusInMeters,$latitude,$longitude);
-        way["shop"="$tag"](around:$radiusInMeters,$latitude,$longitude);
-        node["tourism"="$tag"](around:$radiusInMeters,$latitude,$longitude);
-        way["tourism"="$tag"](around:$radiusInMeters,$latitude,$longitude);
-        node["highway"="$tag"](around:$radiusInMeters,$latitude,$longitude);
-        way["highway"="$tag"](around:$radiusInMeters,$latitude,$longitude);
-      );
-      out center;
-    ''';
+        '[out:json][timeout:25];($selectors);out tags center $maxPlaces;';
 
     final encodedQuery = Uri.encodeComponent(query);
     final url = Uri.parse(
@@ -191,7 +244,9 @@ class PlaceService {
     );
 
     try {
-      final response = await http.get(url).timeout(const Duration(seconds: 10));
+      final response = await (_client?.get(url) ?? http.get(url)).timeout(
+        const Duration(seconds: 35),
+      );
       if (response.statusCode != 200) {
         return const [];
       }
@@ -200,7 +255,7 @@ class PlaceService {
       final elements = decoded['elements'] as List<dynamic>? ?? const [];
       final places = <Place>[];
 
-      for (final element in elements) {
+      for (final element in elements.take(maxPlaces)) {
         final map = Map<String, dynamic>.from(element as Map<dynamic, dynamic>);
         final tags = Map<String, dynamic>.from(map['tags'] ?? const {});
 
@@ -231,10 +286,11 @@ class PlaceService {
 
         places.add(
           Place(
-            id: 'osm_${map['id']}',
+            id: 'osm_${map['type']}_${map['id']}',
             name: placeName,
             address: address,
             categoryName: _formatCategory(categoryValue.toString()),
+            osmTags: tags.map((key, value) => MapEntry(key, value.toString())),
             location: GeoPoint(latValue as double, lonValue as double),
             isVerified: true,
           ),

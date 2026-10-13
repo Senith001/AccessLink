@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../widgets/auth/auth_page.dart';
+
 import '../services/auth_service.dart';
 import '../repositories/user_repository.dart';
 
@@ -51,10 +53,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     });
 
     try {
-      final credential = await _authService.registerUser(
-        email,
-        password,
-      );
+      final credential = await _authService.registerUser(email, password);
 
       if (!mounted) return;
 
@@ -64,9 +63,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         if (name.isEmpty) {
           name = email; // Fallback to email if name is empty
         }
-        
+
         String phone = _phoneController.text.trim();
-        
+
         await _userRepository.createUser(
           uid: credential.user!.uid,
           name: name,
@@ -78,13 +77,17 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         // If Firestore write fails after successful auth, show warning but don't crash
         debugPrint('Failed to save user profile: ${e.message}');
         if (mounted) {
-          _showMessage('Account created, but saving your profile failed. Please update it later.');
+          _showMessage(
+            'Account created, but saving your profile failed. Please update it later.',
+          );
         }
       } catch (e) {
         // Generic error for any other exceptions during Firestore write
         debugPrint('Failed to save user profile: $e');
         if (mounted) {
-          _showMessage('Account created, but saving your profile failed. Please update it later.');
+          _showMessage(
+            'Account created, but saving your profile failed. Please update it later.',
+          );
         }
       }
 
@@ -131,11 +134,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -150,152 +151,146 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: MediaQuery.textScalerOf(context).scale(22) + 32,
-        title: const Text('Sign Up'),
-      ),
+    return AuthPage(
+      title: 'Register',
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Input 1: Name or Email
-              TextField(
-                controller: _nameOrEmailController,
-                decoration: const InputDecoration(
-                  labelText: 'Name or Email',
-                  prefixIcon: Icon(Icons.person),
-                  border: OutlineInputBorder(),
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AuthHeader(
+                  title: 'Register',
+                  logoSize: (constraints.maxHeight - 560).clamp(64.0, 140.0),
                 ),
-              ),
-              const SizedBox(height: 16),
-
-              // Input 2: Email
-              TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  prefixIcon: Icon(Icons.email),
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 10),
+                // Input 1: Name or Email
+                TextField(
+                  textAlignVertical: TextAlignVertical.center,
+                  controller: _nameOrEmailController,
+                  decoration: const InputDecoration(hintText: 'Name or Email'),
                 ),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 10),
 
-              // Input 3: Phone number
-              TextField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Phone number',
-                  prefixIcon: Icon(Icons.phone),
-                  border: OutlineInputBorder(),
+                // Input 2: Email
+                TextField(
+                  textAlignVertical: TextAlignVertical.center,
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(hintText: 'Email'),
                 ),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 10),
 
-              // Input 4: Password
-              TextField(
-                controller: _passwordController,
-                obscureText: _obscurePassword,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  prefixIcon: const Icon(Icons.lock),
-                  border: const OutlineInputBorder(),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_off
-                          : Icons.visibility,
+                // Input 3: Phone number
+                TextField(
+                  textAlignVertical: TextAlignVertical.center,
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(hintText: 'Phone number'),
+                ),
+                const SizedBox(height: 10),
+
+                // Input 4: Password
+                TextField(
+                  textAlignVertical: TextAlignVertical.center,
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  decoration: InputDecoration(
+                    hintText: 'Password',
+
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
                     ),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 10),
 
-              // Input 5: Confirm Password
-              TextField(
-                controller: _confirmPasswordController,
-                obscureText: _obscureConfirmPassword,
-                decoration: InputDecoration(
-                  labelText: 'Confirm Password',
-                  prefixIcon: const Icon(Icons.lock),
-                  border: const OutlineInputBorder(),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureConfirmPassword
-                          ? Icons.visibility_off
-                          : Icons.visibility,
+                // Input 5: Confirm Password
+                TextField(
+                  textAlignVertical: TextAlignVertical.center,
+                  controller: _confirmPasswordController,
+                  obscureText: _obscureConfirmPassword,
+                  decoration: InputDecoration(
+                    hintText: 'Confirm Password',
+
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureConfirmPassword
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscureConfirmPassword = !_obscureConfirmPassword;
+                        });
+                      },
                     ),
-                    onPressed: () {
-                      setState(() {
-                        _obscureConfirmPassword = !_obscureConfirmPassword;
-                      });
-                    },
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
+                const SizedBox(height: 4),
 
-              // Terms & Conditions checkbox
-              Row(
-                children: [
-                  Checkbox(
-                    value: _agreeToTerms,
-                    onChanged: (value) {
-                      setState(() {
-                        _agreeToTerms = value ?? false;
-                      });
-                    },
-                  ),
-                  Expanded(
-                    child: RichText(
-                      text: TextSpan(
-                        style: Theme.of(context).textTheme.bodyMedium,
-                        children: const [
-                          TextSpan(text: 'I agree to all the '),
-                          TextSpan(
-                            text: 'Terms & Conditions',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ],
+                // Terms & Conditions checkbox
+                Row(
+                  children: [
+                    Checkbox(
+                      value: _agreeToTerms,
+                      onChanged: (value) {
+                        setState(() {
+                          _agreeToTerms = value ?? false;
+                        });
+                      },
+                    ),
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: Theme.of(context).textTheme.bodyMedium,
+                          children: const [
+                            TextSpan(text: 'I agree to all the '),
+                            TextSpan(
+                              text: 'Terms & Conditions',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
+                  ],
+                ),
+                const SizedBox(height: 8),
 
-              // Sign Up button
-              ElevatedButton(
-                onPressed: _isLoading ? null : _register,
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Sign Up'),
-              ),
-              const SizedBox(height: 16),
+                // Sign Up button
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _register,
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Register'),
+                ),
+                const SizedBox(height: 10),
 
-              // Already have an account? Sign In
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Already have an account? Sign In'),
-              ),
-            ],
+                // Already have an account? Sign In
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Already have an account? Sign In'),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
-
 }
