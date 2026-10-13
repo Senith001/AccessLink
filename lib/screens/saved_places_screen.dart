@@ -16,23 +16,21 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: const Color(0xFF62A4C6),
+      backgroundColor: colorScheme.surface,
+      appBar: AppBar(
+        title: const Text('Saved places'),
+        toolbarHeight: MediaQuery.textScalerOf(context).scale(22) + 32,
+      ),
       body: SafeArea(
+        top: false,
         child: Column(
           children: [
-            _SavedHeader(onBack: () => Navigator.pop(context)),
             Expanded(
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(22, 28, 22, 18),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(36),
-                    topRight: Radius.circular(36),
-                  ),
-                ),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                 child: StreamBuilder<List<SavedPlace>>(
                   stream: _favoritesService.favoritePlaces(),
                   builder: (context, snapshot) {
@@ -60,7 +58,10 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
                         return _SavedPlaceTile(
                           place: place,
                           onRemove: () => _removeFavorite(place),
-                          onOpenDetails: () => Navigator.push(context, PlaceDetailsScreen.route(placeId: place.id)),
+                          onOpenDetails: () => Navigator.push(
+                            context,
+                            PlaceDetailsScreen.route(placeId: place.id),
+                          ),
                         );
                       },
                     );
@@ -83,37 +84,6 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
   }
 }
 
-class _SavedHeader extends StatelessWidget {
-  const _SavedHeader({required this.onBack});
-
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 18, 14),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: onBack,
-            icon: const Icon(Icons.arrow_back),
-            color: Colors.black,
-            tooltip: 'Back',
-          ),
-          const Expanded(
-            child: Text(
-              'Saved places',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontFamily: 'Georgia', fontSize: 25),
-            ),
-          ),
-          const SizedBox(width: 48),
-        ],
-      ),
-    );
-  }
-}
-
 class _SavedPlaceTile extends StatelessWidget {
   const _SavedPlaceTile({
     required this.place,
@@ -127,45 +97,74 @@ class _SavedPlaceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onOpenDetails,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        constraints: const BoxConstraints(minHeight: 88),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8FBFC),
-          border: Border.all(color: const Color(0xFFE4E7EA)),
-          borderRadius: BorderRadius.circular(10),
+          color: colorScheme.surface,
+          border: Border.all(color: colorScheme.outline),
+          borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
           children: [
-            Icon(place.icon, size: 42, color: const Color(0xFF62A4C6)),
-            const SizedBox(width: 14),
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                place.icon,
+                size: 28,
+                color: colorScheme.onPrimaryContainer,
+              ),
+            ),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     place.name,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
-                  Text(place.category),
+                  Text(
+                    place.category,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurface.withValues(alpha: 0.72),
+                    ),
+                  ),
                   if (place.locationLabel.isNotEmpty)
                     Text(
                       place.locationLabel,
-                      style: const TextStyle(fontSize: 12),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurface.withValues(alpha: 0.72),
+                      ),
                     ),
                 ],
               ),
             ),
             IconButton(
               onPressed: onRemove,
-              icon: const Icon(Icons.favorite, color: Color(0xFFFF0033)),
+              icon: Icon(Icons.favorite, color: colorScheme.error),
               tooltip: 'Remove from saved places',
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: colorScheme.onSurface.withValues(alpha: 0.6),
             ),
           ],
         ),
@@ -179,8 +178,37 @@ class _EmptySavedPlaces extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text('No saved places yet.', textAlign: TextAlign.center),
+    final colorScheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          border: Border.all(color: colorScheme.outline),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.favorite_border, size: 48, color: colorScheme.primary),
+            const SizedBox(height: 14),
+            Text(
+              'No saved places yet.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Save places from search results to find them here later.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurface.withValues(alpha: 0.72),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -192,6 +220,37 @@ class _SavedPlacesError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(child: Text(message, textAlign: TextAlign.center));
+    final colorScheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          border: Border.all(color: colorScheme.outline),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.cloud_off, size: 48, color: colorScheme.error),
+            const SizedBox(height: 14),
+            Text(
+              'Saved places could not be loaded',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurface.withValues(alpha: 0.72),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
