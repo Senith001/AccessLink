@@ -6,69 +6,7 @@ import 'package:flutter/widgets.dart';
 
 import '../core/database/firestore_collections.dart';
 import '../firebase_options.dart';
-
-/// Helper function to compute accessibility score from accessibility features
-int computeAccessibilityScore(Map<String, dynamic> accessibility) {
-  final features = [
-    'wheelchairAccessible',
-    'accessibleToilet',
-    'elevator',
-    'accessibleParking',
-    'tactilePaving',
-    'audioSupport',
-    'hearingSupport',
-  ];
-
-  int availableCount = 0;
-  int presentCount = features.length; // All 7 features are always present
-
-  for (final feature in features) {
-    if (accessibility[feature]?['available'] == true) {
-      availableCount++;
-    }
-  }
-
-  if (presentCount == 0) return 0;
-  return (availableCount / presentCount * 100).round();
-}
-
-/// Helper function to compute has* flags from accessibility features
-Map<String, bool> computeAccessibilityFlags(
-  Map<String, dynamic> accessibility,
-) {
-  return {
-    'hasWheelchairAccess':
-        accessibility['wheelchairAccessible']?['available'] ?? false,
-    'hasAccessibleToilet':
-        accessibility['accessibleToilet']?['available'] ?? false,
-    'hasElevator': accessibility['elevator']?['available'] ?? false,
-    'hasAccessibleParking':
-        accessibility['accessibleParking']?['available'] ?? false,
-    'hasTactilePaving': accessibility['tactilePaving']?['available'] ?? false,
-    'hasAudioSupport': accessibility['audioSupport']?['available'] ?? false,
-    'hasHearingSupport': accessibility['hearingSupport']?['available'] ?? false,
-  };
-}
-
-/// Helper function to check if any accessibility feature is verified
-bool isAccessibilityVerified(Map<String, dynamic> accessibility) {
-  final features = [
-    'wheelchairAccessible',
-    'accessibleToilet',
-    'elevator',
-    'accessibleParking',
-    'tactilePaving',
-    'audioSupport',
-    'hearingSupport',
-  ];
-
-  for (final feature in features) {
-    if (accessibility[feature]?['verified'] == true) {
-      return true;
-    }
-  }
-  return false;
-}
+import '../utils/accessibility_compute.dart';
 
 Future<void> main() async {
   // Initialize Flutter bindings and Firebase
@@ -120,6 +58,28 @@ Future<void> main() async {
       'description': 'Hospitals and healthcare facilities',
       'icon': 'local_hospital',
       'order': 4,
+    },
+    // New categories for Colombo accessibility seeding
+    {
+      'id': 'cat_hotel',
+      'name': 'Hotel',
+      'description': 'Hotels and accommodation',
+      'icon': 'hotel',
+      'order': 5,
+    },
+    {
+      'id': 'cat_supermarket',
+      'name': 'Supermarket',
+      'description': 'Supermarkets and grocery stores',
+      'icon': 'local_grocery_store',
+      'order': 6,
+    },
+    {
+      'id': 'cat_washroom',
+      'name': 'Washroom',
+      'description': 'Public washrooms and toilets',
+      'icon': 'wc',
+      'order': 7,
     },
   ];
 
@@ -313,7 +273,6 @@ Future<void> main() async {
       final accessibility = place['accessibility'] as Map<String, dynamic>;
       final accessibilityScore = computeAccessibilityScore(accessibility);
       final accessibilityFlags = computeAccessibilityFlags(accessibility);
-      final isVerified = isAccessibilityVerified(accessibility);
       final name = place['name'] as String;
 
       final placeData = {
@@ -333,7 +292,7 @@ Future<void> main() async {
         'accessibility': accessibility,
         ...accessibilityFlags,
         'accessibilityScore': accessibilityScore,
-        'isVerified': isVerified,
+        'placeVerified': false, // Honest 'not yet verified' for sample data
         'ratingAverage': 0.0,
         'ratingCount': 0,
         'createdAt': FieldValue.serverTimestamp(),
@@ -362,7 +321,354 @@ Future<void> main() async {
   if (placeDenied.isNotEmpty) {
     denied[FirestoreCollections.places] = placeDenied;
   }
+<<<<<<< HEAD
 
+=======
+  
+  // Colombo Accessibility Places Seeding (Additive)
+  print('\n🏢 Seeding Colombo accessibility places...');
+  
+  final colomboPlaces = [
+    {
+      'id': 'place_colombo_city_hospital',
+      'name': 'Colombo City Hospital',
+      'description': 'General hospital serving central Colombo.',
+      'categoryId': 'cat_hospital',
+      'categoryName': 'Hospital',
+      'address': 'Galle Road, Colombo',
+      'district': 'Colombo',
+      'city': 'Colombo',
+      'location': const GeoPoint(6.9271, 79.8612),
+      'geohash': '',
+      'contact': {
+        'phone': '',
+        'email': '',
+        'website': ''
+      },
+      'openingHours': {
+        'monday': {'open': '00:00', 'close': '23:59', 'closed': false},
+        'tuesday': {'open': '00:00', 'close': '23:59', 'closed': false},
+        'wednesday': {'open': '00:00', 'close': '23:59', 'closed': false},
+        'thursday': {'open': '00:00', 'close': '23:59', 'closed': false},
+        'friday': {'open': '00:00', 'close': '23:59', 'closed': false},
+        'saturday': {'open': '00:00', 'close': '23:59', 'closed': false},
+        'sunday': {'open': '00:00', 'close': '23:59', 'closed': false},
+      },
+      'accessibility': {
+        'wheelchairAccessible': {'available': true, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'accessibleToilet': {'available': true, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'elevator': {'available': true, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'accessibleParking': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'tactilePaving': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'audioSupport': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'hearingSupport': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+      }
+    },
+    {
+      'id': 'place_cinnamon_grand',
+      'name': 'Cinnamon Grand',
+      'description': 'City hotel in Colombo 03.',
+      'categoryId': 'cat_hotel',
+      'categoryName': 'Hotel',
+      'address': 'Colombo 03',
+      'district': 'Colombo 03',
+      'city': 'Colombo',
+      'location': const GeoPoint(6.9271, 79.8487),
+      'geohash': '',
+      'contact': {
+        'phone': '',
+        'email': '',
+        'website': ''
+      },
+      'openingHours': {
+        'monday': {'open': '00:00', 'close': '23:59', 'closed': false},
+        'tuesday': {'open': '00:00', 'close': '23:59', 'closed': false},
+        'wednesday': {'open': '00:00', 'close': '23:59', 'closed': false},
+        'thursday': {'open': '00:00', 'close': '23:59', 'closed': false},
+        'friday': {'open': '00:00', 'close': '23:59', 'closed': false},
+        'saturday': {'open': '00:00', 'close': '23:59', 'closed': false},
+        'sunday': {'open': '00:00', 'close': '23:59', 'closed': false},
+      },
+      'accessibility': {
+        'wheelchairAccessible': {'available': true, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'accessibleToilet': {'available': true, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'elevator': {'available': true, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'accessibleParking': {'available': true, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'tactilePaving': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'audioSupport': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'hearingSupport': {'available': true, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+      }
+    },
+    {
+      'id': 'place_laksala',
+      'name': 'Laksala',
+      'description': 'Retail outlet in Kollupitiya.',
+      'categoryId': 'cat_supermarket',
+      'categoryName': 'Supermarket',
+      'address': 'Kollupitiya',
+      'district': 'Kollupitiya',
+      'city': 'Colombo',
+      'location': const GeoPoint(6.9054, 79.8533),
+      'geohash': '',
+      'contact': {
+        'phone': '',
+        'email': '',
+        'website': ''
+      },
+      'openingHours': {
+        'monday': {'open': '09:00', 'close': '21:00', 'closed': false},
+        'tuesday': {'open': '09:00', 'close': '21:00', 'closed': false},
+        'wednesday': {'open': '09:00', 'close': '21:00', 'closed': false},
+        'thursday': {'open': '09:00', 'close': '21:00', 'closed': false},
+        'friday': {'open': '09:00', 'close': '21:00', 'closed': false},
+        'saturday': {'open': '09:00', 'close': '21:00', 'closed': false},
+        'sunday': {'open': '10:00', 'close': '20:00', 'closed': false},
+      },
+      'accessibility': {
+        'wheelchairAccessible': {'available': true, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'accessibleToilet': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'elevator': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'accessibleParking': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'tactilePaving': {'available': true, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'audioSupport': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'hearingSupport': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+      }
+    },
+    {
+      'id': 'place_avenue_hospital',
+      'name': 'Avenue Hospital',
+      'description': 'Private hospital on Ward Place.',
+      'categoryId': 'cat_hospital',
+      'categoryName': 'Hospital',
+      'address': 'Ward Place',
+      'district': 'Colombo 07',
+      'city': 'Colombo',
+      'location': const GeoPoint(6.9034, 79.8746),
+      'geohash': '',
+      'contact': {
+        'phone': '',
+        'email': '',
+        'website': ''
+      },
+      'openingHours': {
+        'monday': {'open': '00:00', 'close': '23:59', 'closed': false},
+        'tuesday': {'open': '00:00', 'close': '23:59', 'closed': false},
+        'wednesday': {'open': '00:00', 'close': '23:59', 'closed': false},
+        'thursday': {'open': '00:00', 'close': '23:59', 'closed': false},
+        'friday': {'open': '00:00', 'close': '23:59', 'closed': false},
+        'saturday': {'open': '00:00', 'close': '23:59', 'closed': false},
+        'sunday': {'open': '00:00', 'close': '23:59', 'closed': false},
+      },
+      'accessibility': {
+        'wheelchairAccessible': {'available': true, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'accessibleToilet': {'available': true, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'elevator': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'accessibleParking': {'available': true, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'tactilePaving': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'audioSupport': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'hearingSupport': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+      }
+    },
+    {
+      'id': 'place_colombo_public_toilet',
+      'name': 'Colombo Public Toilet',
+      'description': 'Public washroom in Fort.',
+      'categoryId': 'cat_washroom',
+      'categoryName': 'Washroom',
+      'address': 'Fort',
+      'district': 'Fort',
+      'city': 'Colombo',
+      'location': const GeoPoint(6.9355, 79.8437),
+      'geohash': '',
+      'contact': {
+        'phone': '',
+        'email': '',
+        'website': ''
+      },
+      'openingHours': {
+        'monday': {'open': '06:00', 'close': '22:00', 'closed': false},
+        'tuesday': {'open': '06:00', 'close': '22:00', 'closed': false},
+        'wednesday': {'open': '06:00', 'close': '22:00', 'closed': false},
+        'thursday': {'open': '06:00', 'close': '22:00', 'closed': false},
+        'friday': {'open': '06:00', 'close': '22:00', 'closed': false},
+        'saturday': {'open': '06:00', 'close': '22:00', 'closed': false},
+        'sunday': {'open': '06:00', 'close': '22:00', 'closed': false},
+      },
+      'accessibility': {
+        'wheelchairAccessible': {'available': true, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'accessibleToilet': {'available': true, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'elevator': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'accessibleParking': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'tactilePaving': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'audioSupport': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'hearingSupport': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+      }
+    },
+    {
+      'id': 'place_kingsbury_restaurant',
+      'name': 'Kingsbury Restaurant',
+      'description': 'Restaurant on Marine Drive.',
+      'categoryId': 'cat_restaurant',
+      'categoryName': 'Restaurant',
+      'address': 'Marine Drive',
+      'district': 'Colombo 01',
+      'city': 'Colombo',
+      'location': const GeoPoint(6.9255, 79.8407),
+      'geohash': '',
+      'contact': {
+        'phone': '',
+        'email': '',
+        'website': ''
+      },
+      'openingHours': {
+        'monday': {'open': '12:00', 'close': '23:00', 'closed': false},
+        'tuesday': {'open': '12:00', 'close': '23:00', 'closed': false},
+        'wednesday': {'open': '12:00', 'close': '23:00', 'closed': false},
+        'thursday': {'open': '12:00', 'close': '23:00', 'closed': false},
+        'friday': {'open': '12:00', 'close': '23:00', 'closed': false},
+        'saturday': {'open': '12:00', 'close': '23:00', 'closed': false},
+        'sunday': {'open': '12:00', 'close': '23:00', 'closed': false},
+      },
+      'accessibility': {
+        'wheelchairAccessible': {'available': true, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'accessibleToilet': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'elevator': {'available': true, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'accessibleParking': {'available': true, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'tactilePaving': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'audioSupport': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'hearingSupport': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+      }
+    },
+    {
+      'id': 'place_cargills_food_city',
+      'name': 'Cargills Food City',
+      'description': 'Supermarket in Borella.',
+      'categoryId': 'cat_supermarket',
+      'categoryName': 'Supermarket',
+      'address': 'Borella',
+      'district': 'Borella',
+      'city': 'Colombo',
+      'location': const GeoPoint(6.9138, 79.8789),
+      'geohash': '',
+      'contact': {
+        'phone': '',
+        'email': '',
+        'website': ''
+      },
+      'openingHours': {
+        'monday': {'open': '08:00', 'close': '22:00', 'closed': false},
+        'tuesday': {'open': '08:00', 'close': '22:00', 'closed': false},
+        'wednesday': {'open': '08:00', 'close': '22:00', 'closed': false},
+        'thursday': {'open': '08:00', 'close': '22:00', 'closed': false},
+        'friday': {'open': '08:00', 'close': '22:00', 'closed': false},
+        'saturday': {'open': '08:00', 'close': '22:00', 'closed': false},
+        'sunday': {'open': '09:00', 'close': '21:00', 'closed': false},
+      },
+      'accessibility': {
+        'wheelchairAccessible': {'available': true, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'accessibleToilet': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'elevator': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'accessibleParking': {'available': true, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'tactilePaving': {'available': true, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'audioSupport': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'hearingSupport': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+      }
+    },
+    {
+      'id': 'place_bocca_restaurant',
+      'name': 'Bocca Restaurant',
+      'description': 'Restaurant in Colombo 07.',
+      'categoryId': 'cat_restaurant',
+      'categoryName': 'Restaurant',
+      'address': 'Colombo 07',
+      'district': 'Colombo 07',
+      'city': 'Colombo',
+      'location': const GeoPoint(6.9068, 79.8544),
+      'geohash': '',
+      'contact': {
+        'phone': '',
+        'email': '',
+        'website': ''
+      },
+      'openingHours': {
+        'monday': {'open': '18:00', 'close': '23:00', 'closed': false},
+        'tuesday': {'open': '18:00', 'close': '23:00', 'closed': false},
+        'wednesday': {'open': '18:00', 'close': '23:00', 'closed': false},
+        'thursday': {'open': '18:00', 'close': '23:00', 'closed': false},
+        'friday': {'open': '18:00', 'close': '23:00', 'closed': false},
+        'saturday': {'open': '18:00', 'close': '23:00', 'closed': false},
+        'sunday': {'open': '18:00', 'close': '23:00', 'closed': false},
+      },
+      'accessibility': {
+        'wheelchairAccessible': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'accessibleToilet': {'available': true, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'elevator': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'accessibleParking': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'tactilePaving': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'audioSupport': {'available': false, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+        'hearingSupport': {'available': true, 'notes': 'Sample data – not yet verified.', 'verified': false, 'lastUpdated': now},
+      }
+    },
+  ];
+  
+  int colomboPlaceCount = 0;
+  final colomboPlaceDenied = <String>[];
+  
+  for (final place in colomboPlaces) {
+    try {
+      final accessibility = place['accessibility'] as Map<String, dynamic>;
+      final accessibilityScore = computeAccessibilityScore(accessibility);
+      final accessibilityFlags = computeAccessibilityFlags(accessibility);
+      final name = place['name'] as String;
+      
+      final placeData = {
+        'name': name,
+        'nameLower': name.trim().toLowerCase(),
+        'description': place['description'],
+        'categoryId': place['categoryId'],
+        'categoryName': place['categoryName'],
+        'address': place['address'],
+        'district': place['district'],
+        'city': place['city'],
+        'location': place['location'],
+        'geohash': place['geohash'],
+        'photos': <String>[],
+        'openingHours': place['openingHours'],
+        'contact': place['contact'],
+        'accessibility': accessibility,
+        ...accessibilityFlags,
+        'accessibilityScore': accessibilityScore,
+        'placeVerified': false, // Honest 'not yet verified' for sample data
+        'ratingAverage': 0.0,
+        'ratingCount': 0,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      
+      await firestore
+          .collection(FirestoreCollections.places)
+          .doc(place['id'] as String)
+          .set(placeData, SetOptions(merge: true));
+      
+      colomboPlaceCount++;
+      print('  ✅ Created Colombo place: ${place['name']} (accessibility score: $accessibilityScore%)');
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        colomboPlaceDenied.add(place['id'] as String);
+        print('  ❌ Permission denied for Colombo place: ${place['name']}');
+      } else {
+        print('  ⚠️  Error creating Colombo place ${place['name']}: ${e.message}');
+      }
+    }
+  }
+  
+  // Update results with Colombo places count (additive to existing places count)
+  results[FirestoreCollections.places] = placeCount + colomboPlaceCount;
+  if (placeDenied.isNotEmpty || colomboPlaceDenied.isNotEmpty) {
+    denied[FirestoreCollections.places] = [...placeDenied, ...colomboPlaceDenied];
+  }
+  
+>>>>>>> origin/feature/Inclusive-Accessibility-Information
   // 3. Seed Reviews
   print('\n⭐ Seeding reviews...');
   int reviewCount = 0;

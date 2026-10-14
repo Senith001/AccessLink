@@ -1,0 +1,22 @@
+{
+  "name": "accesslink-signer",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Cloudflare Workers backend for signing Cloudinary uploads and handling authenticated operations",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "wrangler": "3.78.12",
+    "typescript": "5.6.2",
+    "vitest": "2.1.1",
+    "@types/node": "20.16.10"
+  },
+  "dependencies": {
+    "@cloudflare/workers-types": "4.20241011.0"
+  }
+}

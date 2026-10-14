@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../accessibility/accessibility_settings.dart';
 import '../accessibility/voice_guidance.dart';
 import '../core/database/firestore_collections.dart';
+import '../services/admin_service.dart';
+import 'admin/admin_dashboard_screen.dart';
 import 'admin_reports_screen.dart';
 import 'my_reports_screen.dart';
 import 'login_screen.dart';
@@ -12,6 +14,17 @@ import 'logout_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  /// Safely check staff status without initializing Firebase in test environment
+  Future<bool> _checkStaffStatus() async {
+    try {
+      final adminService = AdminService();
+      return await adminService.isCurrentUserStaff();
+    } catch (e) {
+      // If Firebase is not initialized (e.g., in tests), return false
+      return false;
+    }
+  }
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -70,8 +83,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final settings = AccessibilityScope.of(context);
     final theme = Theme.of(context);
     final voice = VoiceGuidanceScope.of(context);
+<<<<<<< HEAD
     final isStaff = _userRole == 'admin' || _userRole == 'moderator';
 
+=======
+    
+>>>>>>> origin/feature/Inclusive-Accessibility-Information
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: MediaQuery.textScalerOf(context).scale(22) + 32,
@@ -81,6 +98,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
+<<<<<<< HEAD
             // Account & Moderation section
             Text('Account', style: theme.textTheme.headlineSmall),
             const SizedBox(height: 12),
@@ -224,6 +242,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             Navigator.push(context, AdminReportsScreen.route());
                           },
                         ),
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            Icons.dashboard_customize_outlined,
+                            color: theme.colorScheme.primary,
+                          ),
+                          title: const Text('Admin Dashboard & Submissions'),
+                          subtitle: const Text(
+                            'Review submissions, photo moderation, and place verification',
+                          ),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const AdminDashboardScreen(),
+                              ),
+                            );
+                          },
+                        ),
                         const Divider(),
                       ],
                       ListTile(
@@ -248,8 +286,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
             const SizedBox(height: 24),
-
-            // Voice assistance
             Text('Voice assistance', style: theme.textTheme.headlineSmall),
             SwitchListTile(
               key: const ValueKey('voice-guidance-switch'),

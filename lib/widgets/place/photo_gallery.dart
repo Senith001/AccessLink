@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-
-import 'photo_viewer_dialog.dart';
+import '../../screens/photo_view_screen.dart';
 
 class PhotoGallery extends StatefulWidget {
   final List<String> photos;
   final double? height;
+  final bool enableFullScreen;
   final VoidCallback? onAddPhoto;
 
   const PhotoGallery({
     super.key,
     required this.photos,
     this.height,
+    this.enableFullScreen = true,
     this.onAddPhoto,
   });
 
@@ -20,7 +21,38 @@ class PhotoGallery extends StatefulWidget {
 }
 
 class _PhotoGalleryState extends State<PhotoGallery> {
-  int _currentPage = 0;
+  late PageController _pageController;
+  int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _onPageChanged(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
+  void _openFullScreen(int index) {
+    if (widget.enableFullScreen) {
+      Navigator.push(
+        context,
+        PhotoViewScreen.route(
+          photos: widget.photos,
+          initialIndex: index,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,118 +98,112 @@ class _PhotoGalleryState extends State<PhotoGallery> {
       );
     }
 
-    return Column(
-      children: [
-        Container(
-          height: effectiveHeight,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: colorScheme.outline),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Stack(
-            children: [
-              PageView.builder(
-                itemCount: widget.photos.length,
-                onPageChanged: (page) => setState(() => _currentPage = page),
-                itemBuilder: (context, index) {
-                  return Semantics(
-                    button: true,
-                    label:
-                        'Photo ${index + 1} of ${widget.photos.length}. Tap to view full screen.',
-                    child: InkWell(
-                      onTap: () => PhotoViewerDialog.show(
-                        context,
-                        photos: widget.photos,
-                        initialIndex: index,
-                      ),
-                      child: CachedNetworkImage(
-                        imageUrl: widget.photos[index],
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => Container(
-                          color: colorScheme.surface,
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              color: colorScheme.primary,
-                            ),
-                          ),
-                        ),
-                        errorWidget: (context, url, error) => Container(
-                          color: colorScheme.surface,
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.broken_image,
-                                  size: 48,
-                                  color: colorScheme.onSurface.withValues(
-                                    alpha: 0.6,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Image unavailable',
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(
-                                        color: colorScheme.onSurface.withValues(
-                                          alpha: 0.7,
-                                        ),
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              // Page indicator badge
-              Positioned(
-                bottom: 12,
-                left: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${_currentPage + 1} / ${widget.photos.length}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+    return Container(
+      height: effectiveHeight,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outline),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          PageView.builder(
+            controller: _pageController,
+            onPageChanged: _onPageChanged,
+            itemCount: widget.photos.length,
+            itemBuilder: (context, index) {
+              final imageWidget = CachedNetworkImage(
+                imageUrl: widget.photos[index],
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  color: colorScheme.surface,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: colorScheme.primary,
                     ),
                   ),
                 ),
-              ),
-              // Enlarge hint icon
-              Positioned(
-                top: 12,
-                right: 12,
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: const BoxDecoration(
-                    color: Colors.black54,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.fullscreen,
-                    color: Colors.white,
-                    size: 20,
+                errorWidget: (context, url, error) => Container(
+                  color: colorScheme.surface,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.broken_image,
+                          size: 48,
+                          color: colorScheme.onSurface.withValues(alpha: 0.6),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Image unavailable',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurface.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              );
+
+              if (widget.enableFullScreen) {
+                return Semantics(
+                  button: true,
+                  label: 'Photo ${index + 1} of ${widget.photos.length}. Tap to view full screen.',
+                  child: GestureDetector(
+                    onTap: () => _openFullScreen(index),
+                    child: imageWidget,
+                  ),
+                );
+              } else {
+                return Semantics(
+                  label: 'Photo ${index + 1} of ${widget.photos.length}',
+                  child: imageWidget,
+                );
+              }
+            },
           ),
-        ),
-      ],
+          
+          // Page indicator overlay
+          Positioned(
+            bottom: 12,
+            left: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${_currentIndex + 1} / ${widget.photos.length}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          if (widget.enableFullScreen)
+            Positioned(
+              top: 12,
+              right: 12,
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.fullscreen,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
