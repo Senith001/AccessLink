@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:ui';
 
@@ -7,27 +8,83 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../models/place.dart';
+import '../models/map_place_filter.dart';
+import '../widgets/place/map_accessibility_card.dart';
 import '../accessibility/voice_guidance.dart';
 import '../models/travel_mode.dart';
 import '../services/place_service.dart';
+import '../services/map_place_search_service.dart';
 import '../services/travel_time_service.dart';
 import '../services/directions_service.dart';
 import '../repositories/place_repository.dart';
 import 'place_details_screen.dart';
 
 class MapScreen extends StatefulWidget {
-  const MapScreen({super.key});
+  const MapScreen({super.key, this.placeService, this.searchService});
+  final PlaceService? placeService;
+  final MapPlaceSearchService? searchService;
 
   @override
   State<MapScreen> createState() => _MapScreenState();
 }
 
 class _MapScreenState extends State<MapScreen> {
-  final PlaceService _placeService = PlaceService();
+  late PlaceService _placeService;
   final TravelTimeService _travelTimeService = TravelTimeService();
   final DirectionsService _directionsService = DirectionsService();
   late final PlaceRepository _placeRepository = PlaceRepository();
   final MapController _mapController = MapController();
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  late MapPlaceSearchService _mapSearch;
+  List<Place>? _searchResults;
+  bool _isSearching = false;
+  String? _searchError;
+  int _searchRequest = 0;
+  Timer? _searchDebounce;
+
+  void _clearRemoteSearch() {
+    _searchDebounce?.cancel();
+    _searchRequest++;
+    _searchResults = null;
+    _searchError = null;
+    _isSearching = false;
+  }
+
+  Future<void> _searchMap({bool dismissKeyboard = true}) async {
+    final text = _searchController.text.trim();
+    if (text.isEmpty || _isSearching) return;
+    _searchDebounce?.cancel();
+    if (dismissKeyboard) FocusScope.of(context).unfocus();
+    final request = ++_searchRequest;
+    final center = _mapController.camera.center;
+    setState(() {
+      _isSearching = true;
+      _searchError = null;
+      _searchResults = null;
+    });
+    try {
+      final results = await _mapSearch.search(
+        text,
+        latitude: center.latitude,
+        longitude: center.longitude,
+      );
+      if (!mounted || request != _searchRequest) return;
+      setState(() => _searchResults = results);
+    } catch (error) {
+      if (!mounted || request != _searchRequest) return;
+      debugPrint('Map place search failed: $error');
+      setState(() {
+        _searchError = error is MapSearchException
+            ? error.message
+            : 'Search unavailable. Please try again.';
+      });
+    } finally {
+      if (mounted && request == _searchRequest) {
+        setState(() => _isSearching = false);
+      }
+    }
+  }
 
   late Future<List<Place>> _placesFuture;
   String _selectedCategory = 'All';
@@ -38,8 +95,28 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
+    _placeService = widget.placeService ?? PlaceService();
+    _mapSearch = widget.searchService ?? MapPlaceSearchService();
     _loadPlaces();
     _getCurrentLocation();
+  }
+
+  @override
+  void reassemble() {
+    super.reassemble();
+    _placeService = widget.placeService ?? PlaceService();
+    if (widget.searchService == null) _mapSearch.dispose();
+    _mapSearch = widget.searchService ?? MapPlaceSearchService();
+    setState(_loadPlaces);
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    if (widget.searchService == null) _mapSearch.dispose();
+    _mapController.dispose();
+    super.dispose();
   }
 
   Future<void> _getCurrentLocation() async {
@@ -82,9 +159,12 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _loadPlaces() {
-    _placesFuture = _selectedCategory == 'All'
-        ? _placeService.getPlaces()
-        : _placeService.getPlacesByCategory(_selectedCategory);
+    final all = _selectedCategory == 'All';
+    _placesFuture = _placeService.getPlaces(
+      category: _selectedCategory,
+      radiusInKm: all ? 1.5 : 3,
+      maxPlaces: all ? 60 : 120,
+    );
   }
 
   void _onCategorySelected(String category) {
@@ -93,6 +173,7 @@ class _MapScreenState extends State<MapScreen> {
 
     setState(() {
       _selectedCategory = category;
+      _clearRemoteSearch();
       _loadPlaces();
     });
   }
@@ -204,7 +285,21 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  Future<({Map<String, String> tags, bool failed})> _loadAccessibilityDetails(
+    Place place,
+  ) async {
+    try {
+      final tags = await _mapSearch.accessibilityTags(place);
+      return (tags: tags, failed: false);
+    } catch (error) {
+      debugPrint('Map accessibility lookup failed: $error');
+      return (tags: <String, String>{}, failed: true);
+    }
+  }
+
   void _showPlaceDetails(Place place, Place startPlace) {
+    FocusScope.of(context).unfocus();
+    var accessibilityFuture = _loadAccessibilityDetails(place);
     VoiceGuidanceScope.announce(
       context,
       '${place.name}. ${place.categoryName}. ${place.address}. Choose a travel mode, then Directions.',
@@ -374,6 +469,64 @@ class _MapScreenState extends State<MapScreen> {
 
                         const SizedBox(height: 20),
 
+                        FutureBuilder<
+                          ({Map<String, String> tags, bool failed})
+                        >(
+                          future: accessibilityFuture,
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState !=
+                                ConnectionState.done) {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                child: Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                    SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        'Loading accessibility details…',
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
+                            if (snapshot.hasError ||
+                                (snapshot.data?.failed ?? false)) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Padding(
+                                    padding: EdgeInsets.only(bottom: 8),
+                                    child: Text(
+                                      'Could not load accessibility details. This does not mean the features are unavailable.',
+                                    ),
+                                  ),
+                                  TextButton.icon(
+                                    onPressed: () => setSheetState(() {
+                                      accessibilityFuture =
+                                          _loadAccessibilityDetails(place);
+                                    }),
+                                    icon: const Icon(Icons.refresh),
+                                    label: const Text(
+                                      'Retry accessibility lookup',
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }
+                            return MapAccessibilityCard(
+                              tags: snapshot.data?.tags ?? {},
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 20),
                         const Text(
                           'Travel mode',
                           style: TextStyle(fontWeight: FontWeight.w700),
@@ -578,6 +731,20 @@ class _MapScreenState extends State<MapScreen> {
 
           // Use data if available, otherwise fall back to local fallback places
           final places = snapshot.data ?? _placeService.getFallbackPlaces();
+          final query = _searchQuery.trim().toLowerCase();
+          final visiblePlaces =
+              _searchResults ??
+              places.where((place) {
+                final matchesCategory = matchesMapCategory(
+                  place.categoryName,
+                  _selectedCategory,
+                );
+                final searchableText =
+                    '${place.name} ${place.categoryName} ${place.address}'
+                        .toLowerCase();
+                return matchesCategory &&
+                    query.split(RegExp(r'\s+')).every(searchableText.contains);
+              }).toList();
 
           final startPlace = places.isNotEmpty
               ? places.first
@@ -632,7 +799,7 @@ class _MapScreenState extends State<MapScreen> {
                             ),
                           ),
                         ),
-                      ...places.map((place) {
+                      ...visiblePlaces.map((place) {
                         final color = _categoryColor(place.categoryName);
 
                         return Marker(
@@ -640,6 +807,7 @@ class _MapScreenState extends State<MapScreen> {
                           width: 42,
                           height: 42,
                           child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
                             onTap: () {
                               _showPlaceDetails(place, startPlace);
                             },
@@ -749,6 +917,85 @@ class _MapScreenState extends State<MapScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 8),
+                                TextField(
+                                  controller: _searchController,
+                                  textInputAction: TextInputAction.search,
+                                  onChanged: (value) => setState(() {
+                                    _searchQuery = value;
+                                    _clearRemoteSearch();
+                                    if (value.trim().length >= 3) {
+                                      _searchDebounce = Timer(
+                                        const Duration(milliseconds: 900),
+                                        () =>
+                                            _searchMap(dismissKeyboard: false),
+                                      );
+                                    }
+                                  }),
+                                  onSubmitted: (_) => _searchMap(),
+                                  decoration: InputDecoration(
+                                    hintText:
+                                        'Search a place, city or address…',
+                                    prefixIcon: Icon(
+                                      Icons.search,
+                                      color: _primary,
+                                    ),
+                                    suffixIcon: query.isEmpty
+                                        ? null
+                                        : IconButton(
+                                            tooltip: 'Clear search',
+                                            icon: Icon(
+                                              Icons.close,
+                                              color: _primary,
+                                            ),
+                                            onPressed: () {
+                                              _searchController.clear();
+                                              setState(() {
+                                                _searchQuery = '';
+                                                _clearRemoteSearch();
+                                              });
+                                            },
+                                          ),
+                                    filled: true,
+                                    fillColor: Theme.of(
+                                      context,
+                                    ).colorScheme.surfaceContainerLow,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 14,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(color: _primary),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton.icon(
+                                    onPressed: query.isEmpty || _isSearching
+                                        ? null
+                                        : () => _searchMap(),
+                                    icon: _isSearching
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Icon(
+                                            Icons.travel_explore,
+                                            size: 18,
+                                          ),
+                                    label: const Text('Search places '),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
                                 SingleChildScrollView(
                                   scrollDirection: Axis.horizontal,
                                   child: Row(
@@ -846,6 +1093,75 @@ class _MapScreenState extends State<MapScreen> {
                                     }).toList(),
                                   ),
                                 ),
+                                if (query.isNotEmpty) ...[
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    _isSearching
+                                        ? 'Searching places…'
+                                        : _searchError ??
+                                              (_searchResults == null
+                                                  ? '${visiblePlaces.length} loaded matches · press Search for more'
+                                                  : '${visiblePlaces.length} results · Photon / OpenStreetMap contributors'),
+                                    style: TextStyle(
+                                      color: _primary,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  if (visiblePlaces.isEmpty &&
+                                      !_isSearching &&
+                                      _searchError == null)
+                                    const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                      child: Text('No places found.'),
+                                    ),
+                                  ...visiblePlaces
+                                      .take(40)
+                                      .map(
+                                        (place) => ListTile(
+                                          contentPadding: EdgeInsets.zero,
+                                          leading: CircleAvatar(
+                                            backgroundColor: Theme.of(
+                                              context,
+                                            ).colorScheme.surfaceContainerLow,
+                                            child: Icon(
+                                              _categoryIcon(place.categoryName),
+                                              color: _primary,
+                                            ),
+                                          ),
+                                          title: Text(
+                                            place.name,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          subtitle: Text(
+                                            '${place.categoryName} · ${place.address}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          trailing: Icon(
+                                            Icons.chevron_right,
+                                            color: _primary,
+                                          ),
+                                          onTap: () {
+                                            FocusScope.of(context).unfocus();
+                                            _mapController.move(
+                                              LatLng(
+                                                place.latitude,
+                                                place.longitude,
+                                              ),
+                                              16,
+                                            );
+                                            _showPlaceDetails(
+                                              place,
+                                              startPlace,
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                ],
                               ],
                             ),
                           ),

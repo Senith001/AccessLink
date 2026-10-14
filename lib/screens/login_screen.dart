@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../widgets/auth/auth_page.dart';
+
 import '../services/auth_service.dart';
 import '../navigation/bottom_navigation.dart';
 import 'registration_screen.dart';
@@ -36,11 +38,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final _sw = Stopwatch()..start();
-      await _authService.loginUser(
-        email,
-        password,
+      await _authService.loginUser(email, password);
+      debugPrint(
+        'LOGIN_TIMING: signIn returned after ' +
+            _sw.elapsedMilliseconds.toString() +
+            'ms',
       );
-      debugPrint('LOGIN_TIMING: signIn returned after ' + _sw.elapsedMilliseconds.toString() + 'ms');
 
       if (!mounted) return;
 
@@ -49,11 +52,13 @@ class _LoginScreenState extends State<LoginScreen> {
       // Navigate to the Home shell and remove login from the back stack
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (context) => const BottomNavigationScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const BottomNavigationScreen()),
       );
-      debugPrint('LOGIN_TIMING: navigation issued at ' + _sw.elapsedMilliseconds.toString() + 'ms');
+      debugPrint(
+        'LOGIN_TIMING: navigation issued at ' +
+            _sw.elapsedMilliseconds.toString() +
+            'ms',
+      );
     } on FirebaseAuthException catch (e) {
       debugPrint('AUTH ERROR (login) code=${e.code} msg=${e.message}');
       if (!mounted) return;
@@ -101,11 +106,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -118,48 +121,35 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    
-    return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: MediaQuery.textScalerOf(context).scale(22) + 32,
-        title: const Text('Sign In'),
-      ),
+    return AuthPage(
+      title: 'Login',
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(24, 36, 24, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header Title
-              Text(
-                'Welcome Back',
-                style: theme.textTheme.headlineSmall,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
+              const AuthHeader(title: 'Login'),
+              const SizedBox(height: 30),
 
               // Email Field
               TextField(
+                textAlignVertical: TextAlignVertical.center,
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(
-                  labelText: 'Email',
-                  hintText: 'Enter your email',
-                  prefixIcon: Icon(Icons.email),
-                  border: OutlineInputBorder(),
+                  hintText: 'Enter your email address',
                 ),
               ),
               const SizedBox(height: 16),
 
               // Password Field
               TextField(
+                textAlignVertical: TextAlignVertical.center,
                 controller: _passwordController,
                 obscureText: _obscurePassword,
                 decoration: InputDecoration(
-                  labelText: 'Password',
-                  hintText: 'Enter your password',
-                  prefixIcon: const Icon(Icons.lock),
+                  hintText: 'Enter your passcode',
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscurePassword
@@ -172,7 +162,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       });
                     },
                   ),
-                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 8),
@@ -196,11 +185,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     ? const SizedBox(
                         height: 22,
                         width: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                        ),
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Sign In'),
+                    : const Text('Login'),
               ),
               const SizedBox(height: 24),
 
@@ -225,4 +212,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-
