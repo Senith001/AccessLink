@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:accesslink/repositories/place_repository.dart';
-import 'package:accesslink/models/place_detail.dart';
+
 
 void main() {
   group('PlaceRepository', () {

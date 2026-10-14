@@ -232,21 +232,12 @@ class PlaceDetail {
     }
 
     // Build features map from accessibility data
-<<<<<<< HEAD
-    final accessibilityData =
-        data['accessibility'] as Map<String, dynamic>? ?? {};
-=======
     final accessibilityData = safeCastMap(data['accessibility']) ?? <String, dynamic>{};
->>>>>>> origin/feature/Inclusive-Accessibility-Information
     final features = <String, AccessibilityFeature>{};
 
     for (final key in featureOrder) {
       features[key] = AccessibilityFeature.fromMap(
-<<<<<<< HEAD
-        accessibilityData[key] as Map<String, dynamic>?,
-=======
-        safeCastMap(accessibilityData[key])
->>>>>>> origin/feature/Inclusive-Accessibility-Information
+        safeCastMap(accessibilityData[key]),
       );
     }
 
@@ -311,6 +302,9 @@ class PlaceDetail {
     Map<String, AccessibilityFeature>? features,
     int? accessibilityScore,
     bool? isVerified,
+    bool? placeVerified,
+    String? verifiedBy,
+    DateTime? verifiedAt,
     double? ratingAverage,
     int? ratingCount,
     DateTime? createdAt,
@@ -331,6 +325,9 @@ class PlaceDetail {
       features: features ?? this.features,
       accessibilityScore: accessibilityScore ?? this.accessibilityScore,
       isVerified: isVerified ?? this.isVerified,
+      placeVerified: placeVerified ?? this.placeVerified,
+      verifiedBy: verifiedBy ?? this.verifiedBy,
+      verifiedAt: verifiedAt ?? this.verifiedAt,
       ratingAverage: ratingAverage ?? this.ratingAverage,
       ratingCount: ratingCount ?? this.ratingCount,
       createdAt: createdAt ?? this.createdAt,

@@ -321,9 +321,6 @@ Future<void> main() async {
   if (placeDenied.isNotEmpty) {
     denied[FirestoreCollections.places] = placeDenied;
   }
-<<<<<<< HEAD
-
-=======
   
   // Colombo Accessibility Places Seeding (Additive)
   print('\n🏢 Seeding Colombo accessibility places...');
@@ -668,7 +665,6 @@ Future<void> main() async {
     denied[FirestoreCollections.places] = [...placeDenied, ...colomboPlaceDenied];
   }
   
->>>>>>> origin/feature/Inclusive-Accessibility-Information
   // 3. Seed Reviews
   print('\n⭐ Seeding reviews...');
   int reviewCount = 0;

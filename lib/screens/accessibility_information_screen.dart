@@ -182,12 +182,6 @@ class AccessibilityInformationScreen extends StatelessWidget {
                       feature: feature,
                     );
                   }),
-<<<<<<< HEAD
-
-                  const SizedBox(height: 32),
-
-=======
-                  
                   const SizedBox(height: 24),
 
                   // Suggest Update Button (for authenticated users)
@@ -212,8 +206,6 @@ class AccessibilityInformationScreen extends StatelessWidget {
                       );
                     },
                   ),
-                  
->>>>>>> origin/feature/Inclusive-Accessibility-Information
                   // Action buttons
                   PlaceActionButtons(
                     onGetRoute: () => _handleGetRoute(context),

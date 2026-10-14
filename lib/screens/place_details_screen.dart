@@ -177,7 +177,6 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
     }
   }
 
-<<<<<<< HEAD
   Future<void> _handleRatePlace() async {
     if (_place == null) return;
 
@@ -454,6 +453,8 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
         });
       }
     }
+  }
+
   Widget _buildAccessibilityInfoTile() {
     if (_place == null) return const SizedBox.shrink();
 

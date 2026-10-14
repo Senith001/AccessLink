@@ -83,12 +83,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final settings = AccessibilityScope.of(context);
     final theme = Theme.of(context);
     final voice = VoiceGuidanceScope.of(context);
-<<<<<<< HEAD
     final isStaff = _userRole == 'admin' || _userRole == 'moderator';
 
-=======
-    
->>>>>>> origin/feature/Inclusive-Accessibility-Information
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: MediaQuery.textScalerOf(context).scale(22) + 32,
@@ -98,7 +94,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-<<<<<<< HEAD
             // Account & Moderation section
             Text('Account', style: theme.textTheme.headlineSmall),
             const SizedBox(height: 12),
