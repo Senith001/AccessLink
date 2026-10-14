@@ -15,7 +15,13 @@ service cloud.firestore {
     }
     
     function isStaff() {
-      return isSignedIn() && (userRole() == 'admin' || userRole() == 'moderator');
+      // Check both Firestore document role AND custom claims role for backward compatibility
+      // The backend keeps both in sync, but this provides redundancy
+      // Custom claims are faster (no doc read) but doc check ensures consistency
+      return isSignedIn() && (
+        (userRole() == 'admin' || userRole() == 'moderator') ||
+        (request.auth.token.role in ['admin', 'moderator'])
+      );
     }
 
     // Users collection - auth-based access with role protection
@@ -86,14 +92,24 @@ service cloud.firestore {
       allow write: if isStaff();
     }
 
-    // Contributions collection - OUT OF SCOPE, reserved/unused for MVP
+    // Contributions collection - submission workflow for pending review
     match /contributions/{docId} {
-      allow read, write: if false; // Default deny - reserved/unused for MVP
+      // Users can create contributions with pending status and their own submittedBy field
+      allow create: if isSignedIn() && request.resource.data.submittedBy == request.auth.uid && request.resource.data.status == 'pending';
+      // Staff can read all; users can read their own submissions
+      allow read:   if isStaff() || (isSignedIn() && resource.data.submittedBy == request.auth.uid);
+      // Only staff can update and delete contributions (for moderation workflow)
+      allow update, delete: if isStaff();
     }
 
-    // Accessibility features collection - OUT OF SCOPE, reserved/unused for MVP  
+    // Accessibility features collection - submission workflow for pending review
     match /accessibility_features/{docId} {
-      allow read, write: if false; // Default deny - reserved/unused for MVP
+      // Users can create accessibility features with pending status and their own submittedBy field
+      allow create: if isSignedIn() && request.resource.data.submittedBy == request.auth.uid && request.resource.data.status == 'pending';
+      // Staff can read all; users can read their own submissions
+      allow read:   if isStaff() || (isSignedIn() && resource.data.submittedBy == request.auth.uid);
+      // Only staff can update and delete accessibility features (for moderation workflow)
+      allow update, delete: if isStaff();
     }
 
     // Catch-all deny rule - earlier specific matches take precedence

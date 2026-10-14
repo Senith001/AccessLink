@@ -123,7 +123,22 @@ class PlaceDetail {
   final ContactInfo contact;
   final Map<String, AccessibilityFeature> features;
   final int accessibilityScore;
+  
+  /// Legacy verification field - computed from any feature being verified.
+  /// For backward compatibility during transition.
+  /// NOTE: Place-level verification badge now uses placeVerified field instead.
   final bool isVerified;
+  
+  /// Explicit place-level verification by staff (Decision 2).
+  /// This is the source for place verification badges, NOT the legacy isVerified.
+  final bool placeVerified;
+  
+  /// Staff member who verified this place
+  final String? verifiedBy;
+  
+  /// When this place was verified by staff
+  final DateTime? verifiedAt;
+  
   final double ratingAverage;
   final int ratingCount;
   final DateTime? createdAt;
@@ -144,6 +159,9 @@ class PlaceDetail {
     required this.features,
     required this.accessibilityScore,
     required this.isVerified,
+    required this.placeVerified,
+    this.verifiedBy,
+    this.verifiedAt,
     required this.ratingAverage,
     required this.ratingCount,
     this.createdAt,
@@ -174,23 +192,33 @@ class PlaceDetail {
       throw Exception('Document data is null');
     }
 
+    // Helper function to safely cast dynamic maps
+    Map<String, dynamic>? safeCastMap(dynamic value) {
+      if (value == null) return null;
+      if (value is Map<String, dynamic>) return value;
+      if (value is Map) {
+        return Map<String, dynamic>.from(value);
+      }
+      return null;
+    }
+
     // Build features map from accessibility data
-    final accessibilityData = data['accessibility'] as Map<String, dynamic>? ?? {};
+    final accessibilityData = safeCastMap(data['accessibility']) ?? <String, dynamic>{};
     final features = <String, AccessibilityFeature>{};
     
     for (final key in featureOrder) {
       features[key] = AccessibilityFeature.fromMap(
-        accessibilityData[key] as Map<String, dynamic>?
+        safeCastMap(accessibilityData[key])
       );
     }
 
     // Build opening hours map
-    final openingHoursData = data['openingHours'] as Map<String, dynamic>? ?? {};
+    final openingHoursData = safeCastMap(data['openingHours']) ?? <String, dynamic>{};
     final openingHours = <String, DayHours>{};
     
     for (final day in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']) {
       openingHours[day] = DayHours.fromMap(
-        openingHoursData[day] as Map<String, dynamic>?
+        safeCastMap(openingHoursData[day])
       );
     }
 
@@ -209,10 +237,13 @@ class PlaceDetail {
       location: data['location'] as GeoPoint?,
       photos: photos,
       openingHours: openingHours,
-      contact: ContactInfo.fromMap(data['contact'] as Map<String, dynamic>?),
+      contact: ContactInfo.fromMap(safeCastMap(data['contact'])),
       features: features,
       accessibilityScore: data['accessibilityScore'] as int? ?? 0,
       isVerified: data['isVerified'] as bool? ?? false,
+      placeVerified: data['placeVerified'] as bool? ?? false,
+      verifiedBy: data['verifiedBy'] as String?,
+      verifiedAt: (data['verifiedAt'] as Timestamp?)?.toDate(),
       ratingAverage: (data['ratingAverage'] as num?)?.toDouble() ?? 0.0,
       ratingCount: data['ratingCount'] as int? ?? 0,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),

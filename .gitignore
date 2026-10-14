@@ -51,3 +51,35 @@ app.*.map.json
 .kiro/
 
 .specs/
+
+# Security: Protect Firebase service account keys and secrets
+*serviceAccount*.json
+*service-account*.json
+**/serviceAccountKey.json
+
+# Backend artifacts for future phases  
+functions/node_modules/
+functions/.env
+
+# Firebase rules testing
+firebase-tests/node_modules/
+
+# Firebase emulator debug logs
+firestore-debug.log
+firebase-debug.log
+ui-debug.log
+firebase-tests/*.log
+firebase-tests/firebase-debug.log
+
+# Environment files
+.env
+
+# Certificate files
+*.pem
+
+# Cloudflare Workers Signer
+signer/node_modules/
+signer/.dev.vars
+.dev.vars
+signer/dist/
+signer/.wrangler/

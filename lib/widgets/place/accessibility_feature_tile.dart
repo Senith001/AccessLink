@@ -41,6 +41,46 @@ class AccessibilityFeatureTile extends StatelessWidget {
     }
   }
 
+  Widget _buildVerificationChip(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isVerified = feature.available && feature.verified;
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: isVerified 
+          ? colorScheme.primary.withValues(alpha: 0.1)
+          : colorScheme.surface.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isVerified 
+            ? colorScheme.primary.withValues(alpha: 0.3)
+            : colorScheme.outline.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isVerified ? Icons.check_circle : Icons.info_outline,
+            size: 12,
+            color: isVerified ? colorScheme.primary : colorScheme.onSurface.withValues(alpha: 0.6),
+          ),
+          const SizedBox(width: 2),
+          Text(
+            isVerified ? 'Verified' : 'Unverified',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: isVerified ? colorScheme.primary : colorScheme.onSurface.withValues(alpha: 0.6),
+              fontWeight: FontWeight.w500,
+              fontSize: 10,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _getSemanticLabel() {
     final baseText = '$label: ${feature.available ? "Available" : "Not available"}';
     final unverifiedText = (feature.available && !feature.verified) ? ', unverified' : '';
@@ -60,34 +100,46 @@ class AccessibilityFeatureTile extends StatelessWidget {
       return Semantics(
         label: _getSemanticLabel(),
         child: ExpansionTile(
-          leading: Icon(
-            icon,
-            color: colorScheme.onSurface,
-          ),
-          title: Text(
-            label,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
+          leading: null,
+          title: Row(
             children: [
+              Icon(
+                icon,
+                color: colorScheme.onSurface,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  label,
+                  softWrap: true,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
               Icon(
                 _getStatusIcon(),
                 color: statusColor,
                 size: 20,
               ),
               const SizedBox(width: 4),
-              Text(
-                _getStatusText(),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: statusColor,
-                  fontWeight: FontWeight.w500,
+              Flexible(
+                child: Text(
+                  _getStatusText(),
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: statusColor,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-              const SizedBox(width: 8),
-              const Icon(Icons.expand_more),
+              if (feature.available) ...[
+                const SizedBox(width: 8),
+                _buildVerificationChip(context),
+              ],
             ],
           ),
           children: [
@@ -121,6 +173,9 @@ class AccessibilityFeatureTile extends StatelessWidget {
               Expanded(
                 child: Text(
                   label,
+                  softWrap: true,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     fontWeight: FontWeight.w500,
                   ),
@@ -133,13 +188,20 @@ class AccessibilityFeatureTile extends StatelessWidget {
                 size: 20,
               ),
               const SizedBox(width: 4),
-              Text(
-                _getStatusText(),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: statusColor,
-                  fontWeight: FontWeight.w500,
+              Flexible(
+                child: Text(
+                  _getStatusText(),
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: statusColor,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
+              if (feature.available) ...[
+                const SizedBox(width: 8),
+                _buildVerificationChip(context),
+              ],
             ],
           ),
         ),

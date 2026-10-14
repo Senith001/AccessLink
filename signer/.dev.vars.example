@@ -1,0 +1,7 @@
+# Copy to signer/.dev.vars (gitignored) and fill CLOUDINARY_API_KEY + CLOUDINARY_API_SECRET with the real values; never commit them. (CLOUDINARY_URL is an alternative single-var form but also contains the secret — keep it only in the gitignored .dev.vars, never here.)
+
+CLOUDINARY_CLOUD_NAME=g2iqaglj
+FIREBASE_PROJECT_ID=access-link-005
+CLOUDINARY_API_KEY=your_api_key_here
+CLOUDINARY_API_SECRET=your_api_secret_here
+ALLOWED_ORIGINS=http://localhost:5000,http://127.0.0.1:5000

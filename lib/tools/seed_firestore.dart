@@ -6,64 +6,7 @@ import 'package:flutter/widgets.dart';
 
 import '../core/database/firestore_collections.dart';
 import '../firebase_options.dart';
-
-/// Helper function to compute accessibility score from accessibility features
-int computeAccessibilityScore(Map<String, dynamic> accessibility) {
-  final features = [
-    'wheelchairAccessible',
-    'accessibleToilet', 
-    'elevator',
-    'accessibleParking',
-    'tactilePaving',
-    'audioSupport',
-    'hearingSupport'
-  ];
-  
-  int availableCount = 0;
-  int presentCount = features.length; // All 7 features are always present
-  
-  for (final feature in features) {
-    if (accessibility[feature]?['available'] == true) {
-      availableCount++;
-    }
-  }
-  
-  if (presentCount == 0) return 0;
-  return (availableCount / presentCount * 100).round();
-}
-
-/// Helper function to compute has* flags from accessibility features
-Map<String, bool> computeAccessibilityFlags(Map<String, dynamic> accessibility) {
-  return {
-    'hasWheelchairAccess': accessibility['wheelchairAccessible']?['available'] ?? false,
-    'hasAccessibleToilet': accessibility['accessibleToilet']?['available'] ?? false,
-    'hasElevator': accessibility['elevator']?['available'] ?? false,
-    'hasAccessibleParking': accessibility['accessibleParking']?['available'] ?? false,
-    'hasTactilePaving': accessibility['tactilePaving']?['available'] ?? false,
-    'hasAudioSupport': accessibility['audioSupport']?['available'] ?? false,
-    'hasHearingSupport': accessibility['hearingSupport']?['available'] ?? false,
-  };
-}
-
-/// Helper function to check if any accessibility feature is verified
-bool isAccessibilityVerified(Map<String, dynamic> accessibility) {
-  final features = [
-    'wheelchairAccessible',
-    'accessibleToilet', 
-    'elevator',
-    'accessibleParking',
-    'tactilePaving',
-    'audioSupport',
-    'hearingSupport'
-  ];
-  
-  for (final feature in features) {
-    if (accessibility[feature]?['verified'] == true) {
-      return true;
-    }
-  }
-  return false;
-}
+import '../utils/accessibility_compute.dart';
 
 Future<void> main() async {
   // Initialize Flutter bindings and Firebase
@@ -260,7 +203,6 @@ Future<void> main() async {
       final accessibility = place['accessibility'] as Map<String, dynamic>;
       final accessibilityScore = computeAccessibilityScore(accessibility);
       final accessibilityFlags = computeAccessibilityFlags(accessibility);
-      final isVerified = isAccessibilityVerified(accessibility);
       final name = place['name'] as String;
       
       final placeData = {
@@ -280,7 +222,7 @@ Future<void> main() async {
         'accessibility': accessibility,
         ...accessibilityFlags,
         'accessibilityScore': accessibilityScore,
-        'isVerified': isVerified,
+        'placeVerified': false, // Honest 'not yet verified' for sample data
         'ratingAverage': 0.0,
         'ratingCount': 0,
         'createdAt': FieldValue.serverTimestamp(),
@@ -602,7 +544,6 @@ Future<void> main() async {
       final accessibility = place['accessibility'] as Map<String, dynamic>;
       final accessibilityScore = computeAccessibilityScore(accessibility);
       final accessibilityFlags = computeAccessibilityFlags(accessibility);
-      final isVerified = isAccessibilityVerified(accessibility);
       final name = place['name'] as String;
       
       final placeData = {
@@ -622,7 +563,7 @@ Future<void> main() async {
         'accessibility': accessibility,
         ...accessibilityFlags,
         'accessibilityScore': accessibilityScore,
-        'isVerified': isVerified,
+        'placeVerified': false, // Honest 'not yet verified' for sample data
         'ratingAverage': 0.0,
         'ratingCount': 0,
         'createdAt': FieldValue.serverTimestamp(),
