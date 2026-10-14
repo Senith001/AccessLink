@@ -26,7 +26,7 @@ class _MapScreenState extends State<MapScreen> {
   final PlaceService _placeService = PlaceService();
   final TravelTimeService _travelTimeService = TravelTimeService();
   final DirectionsService _directionsService = DirectionsService();
-  final PlaceRepository _placeRepository = PlaceRepository();
+  late final PlaceRepository _placeRepository = PlaceRepository();
   final MapController _mapController = MapController();
 
   late Future<List<Place>> _placesFuture;
