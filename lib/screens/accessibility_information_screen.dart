@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/place_detail.dart';
 import '../models/travel_mode.dart';
 import '../services/directions_service.dart';
@@ -7,6 +8,7 @@ import '../widgets/place/verified_badge.dart';
 import '../widgets/place/accessibility_feature_tile.dart';
 import '../widgets/place/place_action_buttons.dart';
 import 'reviews_list_screen.dart';
+import 'propose_accessibility_screen.dart';
 
 class AccessibilityInformationScreen extends StatelessWidget {
   final PlaceDetail place;
@@ -85,6 +87,21 @@ class AccessibilityInformationScreen extends StatelessWidget {
     );
   }
 
+  void _handleSuggestUpdate(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to suggest accessibility updates')),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      ProposeAccessibilityScreen.route(place: place),
+    );
+  }
+
   Widget _buildHeader(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -110,9 +127,9 @@ class AccessibilityInformationScreen extends StatelessWidget {
           // Verified badge and last updated
           Row(
             children: [
-              VerifiedBadge(isVerified: place.isVerified),
+              VerifiedBadge(isVerified: place.placeVerified),
               if (place.lastUpdated != null) ...[
-                if (place.isVerified) const SizedBox(width: 12),
+                if (place.placeVerified) const SizedBox(width: 12),
                 Text(
                   _formatRelativeTime(place.lastUpdated),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -175,7 +192,30 @@ class AccessibilityInformationScreen extends StatelessWidget {
                     );
                   }),
                   
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
+
+                  // Suggest Update Button (for authenticated users)
+                  StreamBuilder<User?>(
+                    stream: FirebaseAuth.instance.authStateChanges(),
+                    builder: (context, snapshot) {
+                      final user = snapshot.data;
+                      if (user == null) return const SizedBox.shrink();
+
+                      return Column(
+                        children: [
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () => _handleSuggestUpdate(context),
+                              icon: const Icon(Icons.edit_outlined),
+                              label: const Text('Suggest Accessibility Update'),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                      );
+                    },
+                  ),
                   
                   // Action buttons
                   PlaceActionButtons(

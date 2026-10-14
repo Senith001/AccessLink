@@ -12,6 +12,8 @@ import '../models/travel_mode.dart';
 import '../services/place_service.dart';
 import '../services/travel_time_service.dart';
 import '../services/directions_service.dart';
+import '../repositories/place_repository.dart';
+import 'place_details_screen.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -24,12 +26,14 @@ class _MapScreenState extends State<MapScreen> {
   final PlaceService _placeService = PlaceService();
   final TravelTimeService _travelTimeService = TravelTimeService();
   final DirectionsService _directionsService = DirectionsService();
+  late final PlaceRepository _placeRepository = PlaceRepository();
   final MapController _mapController = MapController();
 
   late Future<List<Place>> _placesFuture;
   String _selectedCategory = 'All';
   LatLng? _currentLocation;
   TravelMode _selectedTravelMode = TravelMode.driving;
+  final Map<String, bool> _viewDetailsLoadingMap = {};
 
   @override
   void initState() {
@@ -228,7 +232,10 @@ class _MapScreenState extends State<MapScreen> {
         final color = _categoryColor(place.categoryName);
 
         return StatefulBuilder(
-          builder: (context, setSheetState) => DraggableScrollableSheet(
+          builder: (context, setSheetState) {
+            final isViewDetailsLoading = _viewDetailsLoadingMap[place.id] ?? false;
+            
+            return DraggableScrollableSheet(
             expand: false,
             builder: (_, controller) {
               return Container(
@@ -469,16 +476,84 @@ class _MapScreenState extends State<MapScreen> {
                             ),
                           ],
                         ),
+                        
+                        const SizedBox(height: 12),
+                        
+                        // View details button
+                        SizedBox(
+                          width: double.infinity,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              minHeight: 52,
+                            ),
+                            child: OutlinedButton.icon(
+                              onPressed: isViewDetailsLoading ? null : () async {
+                                setState(() {
+                                  _viewDetailsLoadingMap[place.id] = true;
+                                });
+                                setSheetState(() {});
+                                VoiceGuidanceScope.announce(
+                                  context,
+                                  'Opening details for ${place.name}',
+                                );
+                                
+                                final detail = await _placeRepository.findPlaceDetailByNameAndLocation(
+                                  name: place.name,
+                                  latitude: place.latitude,
+                                  longitude: place.longitude,
+                                );
+                                
+                                if (!context.mounted) return;
+                                setState(() {
+                                  _viewDetailsLoadingMap[place.id] = false;
+                                });
+                                setSheetState(() {});
+                                
+                                if (detail != null) {
+                                  Navigator.of(context).push(PlaceDetailsScreen.route(place: detail));
+                                } else {
+                                  const message = 'Detailed profile not available for this place yet.';
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text(message)),
+                                  );
+                                  VoiceGuidanceScope.announce(context, message);
+                                }
+                              },
+                              icon: isViewDetailsLoading 
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Icon(Icons.arrow_forward, size: 22),
+                              label: Text(
+                                isViewDetailsLoading ? 'Loading...' : 'View details',
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: _primary,
+                                side: BorderSide(color: _primary),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 ),
               );
             },
-          ),
-        );
-      },
-    );
+          );
+        },
+      );
+    },
+  );
   }
 
   @override

@@ -1,5 +1,24 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:accesslink/models/place_detail.dart';
+
+// Mock DocumentSnapshot for testing
+class MockDocumentSnapshot implements DocumentSnapshot<Map<String, dynamic>> {
+  final String _id;
+  final Map<String, dynamic>? _data;
+
+  MockDocumentSnapshot(this._id, this._data);
+
+  @override
+  String get id => _id;
+
+  @override
+  Map<String, dynamic>? data() => _data;
+
+  // Stub implementations for other required methods
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
+}
 
 void main() {
   group('AccessibilityFeature.fromMap', () {
@@ -162,6 +181,123 @@ void main() {
       };
 
       expect(PlaceDetail.featureLabels, equals(expectedLabels));
+    });
+  });
+
+  group('PlaceDetail.fromFirestore', () {
+    test('creates place with minimal legacy document (defaults placeVerified=false)', () {
+      final doc = MockDocumentSnapshot('test-id', {
+        'name': 'Test Place',
+        'description': 'Test Description',
+        'categoryName': 'Restaurant',
+        'address': '123 Test St',
+        'district': 'Test District',
+        'city': 'Test City',
+        'accessibility': <String, dynamic>{},
+        'openingHours': <String, dynamic>{},
+        'photos': <String>[],
+        'contact': <String, dynamic>{},
+        'accessibilityScore': 50,
+        'ratingAverage': 4.2,
+        'ratingCount': 10,
+        'isVerified': true, // Legacy field - should not affect placeVerified
+      });
+
+      final place = PlaceDetail.fromFirestore(doc);
+
+      expect(place.id, equals('test-id'));
+      expect(place.name, equals('Test Place'));
+      expect(place.isVerified, isTrue); // Legacy field preserved
+      expect(place.placeVerified, isFalse); // New field defaults to false
+      expect(place.verifiedBy, isNull);
+      expect(place.verifiedAt, isNull);
+    });
+
+    test('creates place with explicit placeVerified field', () {
+      final verifiedAt = DateTime(2024, 1, 15, 10, 30);
+      final doc = MockDocumentSnapshot('test-id', {
+        'name': 'Verified Place',
+        'description': 'Test Description',
+        'categoryName': 'Restaurant',
+        'address': '123 Test St',
+        'district': 'Test District',
+        'city': 'Test City',
+        'accessibility': <String, dynamic>{},
+        'openingHours': <String, dynamic>{},
+        'photos': <String>[],
+        'contact': <String, dynamic>{},
+        'accessibilityScore': 85,
+        'ratingAverage': 4.5,
+        'ratingCount': 20,
+        'isVerified': false, // Legacy field
+        'placeVerified': true, // Explicit staff verification
+        'verifiedBy': 'admin@example.com',
+        'verifiedAt': Timestamp.fromDate(verifiedAt),
+      });
+
+      final place = PlaceDetail.fromFirestore(doc);
+
+      expect(place.id, equals('test-id'));
+      expect(place.name, equals('Verified Place'));
+      expect(place.isVerified, isFalse); // Legacy field
+      expect(place.placeVerified, isTrue); // New explicit field
+      expect(place.verifiedBy, equals('admin@example.com'));
+      expect(place.verifiedAt, equals(verifiedAt));
+    });
+
+    test('handles null/missing verification fields gracefully', () {
+      final doc = MockDocumentSnapshot('test-id', {
+        'name': 'Test Place',
+        'description': 'Test Description',
+        'categoryName': 'Restaurant',
+        'address': '123 Test St',
+        'district': 'Test District',
+        'city': 'Test City',
+        'accessibility': <String, dynamic>{},
+        'openingHours': <String, dynamic>{},
+        'photos': <String>[],
+        'contact': <String, dynamic>{},
+        'accessibilityScore': 0,
+        'ratingAverage': 0.0,
+        'ratingCount': 0,
+        // Missing isVerified, placeVerified, verifiedBy, verifiedAt
+      });
+
+      final place = PlaceDetail.fromFirestore(doc);
+
+      expect(place.isVerified, isFalse); // Default false
+      expect(place.placeVerified, isFalse); // Default false
+      expect(place.verifiedBy, isNull);
+      expect(place.verifiedAt, isNull);
+    });
+
+    test('preserves explicit false values for verification fields', () {
+      final doc = MockDocumentSnapshot('test-id', {
+        'name': 'Test Place',
+        'description': 'Test Description',
+        'categoryName': 'Restaurant',
+        'address': '123 Test St',
+        'district': 'Test District',
+        'city': 'Test City',
+        'accessibility': <String, dynamic>{},
+        'openingHours': <String, dynamic>{},
+        'photos': <String>[],
+        'contact': <String, dynamic>{},
+        'accessibilityScore': 0,
+        'ratingAverage': 0.0,
+        'ratingCount': 0,
+        'isVerified': false,
+        'placeVerified': false,
+        'verifiedBy': null,
+        'verifiedAt': null,
+      });
+
+      final place = PlaceDetail.fromFirestore(doc);
+
+      expect(place.isVerified, isFalse);
+      expect(place.placeVerified, isFalse);
+      expect(place.verifiedBy, isNull);
+      expect(place.verifiedAt, isNull);
     });
   });
 }

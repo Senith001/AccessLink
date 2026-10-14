@@ -1,0 +1,25 @@
+// OBSOLETE FOR PHOTOS: Photos have been migrated to Cloudinary.
+// These Firebase Storage rules are now inert and kept for reference
+// until the Firebase Storage bucket is formally retired.
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Pending submission images: owner (by uid in path) OR staff via custom claim can READ; owner can WRITE (image, <=5MB). No public read.
+    // NOTE: staff-claim read depends on custom claims provisioned by the Phase 5 Admin SDK backend (until then only owner read works)
+    match /place_photo_submissions/{uid}/{allPaths=**} {
+      allow read: if request.auth != null && (request.auth.uid == uid || request.auth.token.role in ['admin','moderator']);
+      allow write: if request.auth != null && request.auth.uid == uid
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+    
+    // Approved public photos (written by staff approval; public read)
+    match /place_photos/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.token.role in ['admin','moderator'];
+    }
+    
+    // Deny all other paths
+    match /{allPaths=**} { allow read, write: if false; }
+  }
+}

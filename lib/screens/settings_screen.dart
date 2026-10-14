@@ -2,15 +2,29 @@ import 'package:flutter/material.dart';
 
 import '../accessibility/accessibility_settings.dart';
 import '../accessibility/voice_guidance.dart';
+import '../services/admin_service.dart';
+import 'admin/admin_dashboard_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
+
+  /// Safely check staff status without initializing Firebase in test environment
+  Future<bool> _checkStaffStatus() async {
+    try {
+      final adminService = AdminService();
+      return await adminService.isCurrentUserStaff();
+    } catch (e) {
+      // If Firebase is not initialized (e.g., in tests), return false
+      return false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final settings = AccessibilityScope.of(context);
     final theme = Theme.of(context);
     final voice = VoiceGuidanceScope.of(context);
+    
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: MediaQuery.textScalerOf(context).scale(22) + 32,
@@ -20,6 +34,40 @@ class SettingsScreen extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
+            // Admin Panel Section (shown only to staff, safe initialization)
+            FutureBuilder<bool>(
+              future: _checkStaffStatus(),
+              builder: (context, snapshot) {
+                final isStaff = snapshot.data ?? false;
+                if (!isStaff) return const SizedBox.shrink();
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Administration', style: theme.textTheme.headlineSmall),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const AdminDashboardScreen(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.admin_panel_settings),
+                        label: const Text('Admin Panel'),
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                );
+              },
+            ),
             Text('Voice assistance', style: theme.textTheme.headlineSmall),
             SwitchListTile(
               key: const ValueKey('voice-guidance-switch'),

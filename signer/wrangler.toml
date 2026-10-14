@@ -1,0 +1,15 @@
+name = "accesslink-signer"
+main = "src/index.ts"
+compatibility_date = "2024-10-14"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+CLOUDINARY_CLOUD_NAME = "g2iqaglj"
+CLOUDINARY_API_KEY = ""
+FIREBASE_PROJECT_ID = "access-link-005"
+# Local development origins (Flutter web on pinned port 5000). Strict exact-match allow-list.
+# Production origins deferred until a production admin-panel domain is selected.
+ALLOWED_ORIGINS = "http://localhost:5000,http://127.0.0.1:5000"
+
+# Secrets to be set via `wrangler secret put` or .dev.vars:
+# CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET

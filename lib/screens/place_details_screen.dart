@@ -1,8 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/place_detail.dart';
 import '../models/travel_mode.dart';
 import '../repositories/place_repository.dart';
 import '../services/directions_service.dart';
+import '../services/photo_upload_service.dart';
+import '../services/cloudinary_client.dart';
 import '../widgets/place/photo_gallery.dart';
 import '../widgets/place/rating_stars.dart';
 import '../widgets/place/verified_badge.dart';
@@ -36,8 +40,10 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
   PlaceDetail? _place;
   bool _isLoading = false;
   String? _errorMessage;
+  bool _isUploadingPhoto = false;
   final PlaceRepository _placeRepository = PlaceRepository();
   final DirectionsService _directionsService = DirectionsService();
+  final PhotoUploadService _photoUploadService = PhotoUploadService();
 
   @override
   void initState() {
@@ -123,6 +129,73 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
           placeName: _place!.name,
         ),
       );
+    }
+  }
+
+  void _handleAddPhoto() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please log in to submit a photo')),
+        );
+      }
+      return;
+    }
+
+    if (_place == null) return;
+
+    setState(() {
+      _isUploadingPhoto = true;
+    });
+
+    try {
+      final submissionId = await _photoUploadService.pickAndSubmitPhoto(
+        placeId: _place!.id,
+        placeName: _place!.name,
+      );
+
+      if (mounted && submissionId != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Photo submitted for review! Thank you for contributing.')),
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[AddPhoto] $e');
+      }
+      
+      if (mounted) {
+        String errorMessage = 'Failed to submit photo';
+        
+        // Show more informative messages for known error types
+        if (e is CloudinaryException || e is StateError || e is ArgumentError) {
+          String detailedMessage = e.toString();
+          
+          // Clean up common error type prefixes for user display
+          detailedMessage = detailedMessage
+              .replaceFirst('StateError: ', '')
+              .replaceFirst('Invalid argument(s): ', '')
+              .replaceFirst('CloudinaryException: ', '');
+          
+          // Trim very long messages
+          if (detailedMessage.length > 200) {
+            detailedMessage = '${detailedMessage.substring(0, 200)}...';
+          }
+          
+          errorMessage = detailedMessage;
+        }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage)),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingPhoto = false;
+        });
+      }
     }
   }
 
@@ -235,11 +308,6 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Photo Gallery
-                          if (_place!.photos.isNotEmpty)
-                            PhotoGallery(photos: _place!.photos),
-                          if (_place!.photos.isNotEmpty) const SizedBox(height: 24),
-
                           // Name and category
                           Text(
                             _place!.name,
@@ -266,9 +334,9 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                           // Verified badge and last updated
                           Row(
                             children: [
-                              VerifiedBadge(isVerified: _place!.isVerified),
+                              VerifiedBadge(isVerified: _place!.placeVerified),
                               if (_place!.lastUpdated != null) ...[
-                                if (_place!.isVerified) const SizedBox(width: 12),
+                                if (_place!.placeVerified) const SizedBox(width: 12),
                                 Text(
                                   _formatRelativeTime(_place!.lastUpdated),
                                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -279,6 +347,40 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                             ],
                           ),
                           const SizedBox(height: 24),
+
+                          // Photo Gallery
+                          if (_place!.photos.isNotEmpty)
+                            PhotoGallery(photos: _place!.photos),
+                          if (_place!.photos.isNotEmpty) const SizedBox(height: 16),
+
+                          // Add Photo Button (for authenticated users)
+                          StreamBuilder<User?>(
+                            stream: FirebaseAuth.instance.authStateChanges(),
+                            builder: (context, snapshot) {
+                              final user = snapshot.data;
+                              if (user == null) return const SizedBox.shrink();
+
+                              return Column(
+                                children: [
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: OutlinedButton.icon(
+                                      onPressed: _isUploadingPhoto ? null : _handleAddPhoto,
+                                      icon: _isUploadingPhoto
+                                          ? const SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child: CircularProgressIndicator(strokeWidth: 2),
+                                            )
+                                          : const Icon(Icons.add_a_photo_outlined),
+                                      label: Text(_isUploadingPhoto ? 'Uploading...' : 'Add Photo'),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                ],
+                              );
+                            },
+                          ),
 
                           // Opening hours
                           OpeningHoursTile(openingHours: _place!.openingHours),

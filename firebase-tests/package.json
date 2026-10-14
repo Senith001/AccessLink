@@ -1,0 +1,14 @@
+{
+  "name": "firebase-rules-tests",
+  "version": "1.0.0",
+  "description": "Firebase Security Rules Testing",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest --run"
+  },
+  "dependencies": {
+    "@firebase/rules-unit-testing": "^3.0.3",
+    "vitest": "^1.0.0"
+  },
+  "type": "module"
+}
