@@ -1,0 +1,11 @@
+const {test} = require('node:test');
+const assert = require('node:assert/strict');
+const {aggregateRatings} = require('./ratings.cjs');
+const review = (userId, rating, id = `p_${userId}`, time = 0) => ({id, data: {placeId: 'p', userId, rating, updatedAt: {toMillis: () => time}}});
+test('empty ratings have zero average and count', () => assert.deepEqual(aggregateRatings([]), {ratingCount: 0, ratingSum: 0, ratingAverage: 0}));
+test('accepts rating boundaries and computes average', () => assert.deepEqual(aggregateRatings([review('a',1),review('b',5)]), {ratingCount:2,ratingSum:6,ratingAverage:3}));
+test('ignores invalid ratings and missing users', () => assert.equal(aggregateRatings([review('a',0),review('b',6),review('c',1.5),{id:'x',data:{rating:5}}]).ratingCount,0));
+test('canonical record supersedes duplicate legacy record', () => assert.deepEqual(aggregateRatings([review('a',5,'legacy',100),review('a',2)]),{ratingCount:1,ratingSum:2,ratingAverage:2}));
+test('latest legacy record wins independent of order', () => {const a=review('a',1,'old',1), b=review('a',4,'new',2);assert.deepEqual(aggregateRatings([a,b]),aggregateRatings([b,a]));assert.equal(aggregateRatings([a,b]).ratingAverage,4);});
+test('deletion recalculates remaining ratings',()=>assert.equal(aggregateRatings([review('b',5)]).ratingCount,1));
+test('repeated delivery gives identical results',()=>{const docs=[review('a',3),review('b',4)];assert.deepEqual(aggregateRatings(docs),aggregateRatings(docs));assert.equal(aggregateRatings(docs).ratingAverage,3.5);});

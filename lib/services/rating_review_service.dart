@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -80,7 +81,7 @@ class RatingReviewService {
       if (query.docs.isNotEmpty) {
         return Review.fromQueryDoc(query.docs.first);
       }
-    } catch (_) {}
+    } on FirebaseException { rethrow; }
     return null;
   }
 
@@ -107,26 +108,20 @@ class RatingReviewService {
         .collection(FirestoreCollections.reviews)
         .doc(docId);
 
-    final existingDoc = await reviewRef.get();
-    final existingText = existingDoc.exists
-        ? (existingDoc.data()?['text'] as String? ?? '')
-        : '';
-    final newText = optionalText != null ? optionalText.trim() : existingText;
-
-    final data = <String, dynamic>{
-      'placeId': placeId,
-      'userId': user.uid,
-      'userName': userName,
-      'rating': rating,
-      'text': newText,
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
-
-    if (!existingDoc.exists) {
-      data['createdAt'] = FieldValue.serverTimestamp();
-    }
-
-    await reviewRef.set(data, SetOptions(merge: true));
+    String newText = '';
+    await _firestore.runTransaction((tx) async {
+      final place = await tx.get(_firestore.collection(FirestoreCollections.places).doc(placeId));
+      final existingDoc = await tx.get(reviewRef);
+      if (!place.exists) throw StateError('This place no longer exists.');
+      newText = optionalText?.trim() ?? (existingDoc.data()?['text'] as String? ?? '');
+      if (newText.length > 2000) throw ArgumentError('Review text cannot exceed 2,000 characters.');
+      tx.set(reviewRef, {
+        'placeId': placeId, 'userId': user.uid, 'userName': userName,
+        'rating': rating, 'text': newText,
+        'updatedAt': FieldValue.serverTimestamp(),
+        if (!existingDoc.exists) 'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    });
 
     // Calculate accurate aggregate from all saved ratings for this place
     return await _recalculatePlaceAggregate(
@@ -162,50 +157,10 @@ class RatingReviewService {
       throw ArgumentError('Rating must be an integer between 1 and 5.');
     }
 
-    final docId = '${placeId}_${user.uid}';
-    final userName = await _resolveUserName(user.uid);
-    final reviewRef = _firestore
-        .collection(FirestoreCollections.reviews)
-        .doc(docId);
-
-    final existingDoc = await reviewRef.get();
-    final isNew = !existingDoc.exists;
-
-    final data = <String, dynamic>{
-      'placeId': placeId,
-      'userId': user.uid,
-      'userName': userName,
-      'rating': rating,
-      'text': trimmedText,
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
-
-    if (isNew) {
-      data['createdAt'] = FieldValue.serverTimestamp();
-    }
-
-    await reviewRef.set(data, SetOptions(merge: true));
-
-    // Update place aggregates accurately
-    await _recalculatePlaceAggregate(
-      placeId,
-      userRating: rating,
-      userText: trimmedText,
-    );
-
-    return Review(
-      id: docId,
-      placeId: placeId,
-      userId: user.uid,
-      userName: userName,
-      text: trimmedText,
-      rating: rating,
-      createdAt: isNew
-          ? DateTime.now()
-          : (existingDoc.data()?['createdAt'] as Timestamp?)?.toDate() ??
-                DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
+    await submitOrUpdateRating(placeId: placeId, rating: rating, optionalText: trimmedText);
+    final saved = await getUserReviewForPlace(placeId);
+    if (saved == null) throw StateError('Review saved, but could not be refreshed. Please refresh the page.');
+    return saved;
   }
 
   /// Accurately compute ratings aggregate from trusted query and update place record
@@ -219,52 +174,30 @@ class RatingReviewService {
         .where('placeId', isEqualTo: placeId)
         .get();
 
-    final docs = snapshot.docs;
-    if (docs.isEmpty) {
-      try {
-        await _firestore
-            .collection(FirestoreCollections.places)
-            .doc(placeId)
-            .update({
-              'ratingAverage': 0.0,
-              'ratingCount': 0,
-              'updatedAt': FieldValue.serverTimestamp(),
-            });
-      } catch (_) {}
-      return RatingCalculationResult(
-        average: 0.0,
-        count: 0,
-        userRating: userRating,
-        userReviewText: userText,
-      );
-    }
-
-    int totalSum = 0;
-    int count = 0;
-    for (final doc in docs) {
-      final r = doc.data()['rating'] as int?;
-      if (r != null && r >= 1 && r <= 5) {
-        totalSum += r;
-        count++;
+    final selected = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};
+    for (final doc in snapshot.docs) {
+      final d = doc.data();
+      final uid = d['userId'];
+      final rating = d['rating'];
+      if (uid is! String || rating is! int || rating < 1 || rating > 5) continue;
+      final previous = selected[uid];
+      final canonical = doc.id == '${placeId}_$uid';
+      final oldCanonical = previous?.id == '${placeId}_$uid';
+      final time = (d['updatedAt'] as Timestamp?) ?? (d['createdAt'] as Timestamp?);
+      final old = previous?.data();
+      final oldTime = (old?['updatedAt'] as Timestamp?) ?? (old?['createdAt'] as Timestamp?);
+      if (previous == null || (canonical && !oldCanonical) ||
+          (canonical == oldCanonical && (time?.millisecondsSinceEpoch ?? 0) > (oldTime?.millisecondsSinceEpoch ?? 0))) {
+        selected[uid] = doc;
       }
     }
-
+    final count = selected.length;
+    final totalSum = selected.values.fold<int>(0, (sum, doc) => sum + (doc.data()['rating'] as int));
     final average = count > 0 ? (totalSum / count) : 0.0;
     final roundedAverage = double.parse(average.toStringAsFixed(1));
 
-    try {
-      await _firestore
-          .collection(FirestoreCollections.places)
-          .doc(placeId)
-          .update({
-            'ratingAverage': roundedAverage,
-            'ratingCount': count,
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
-    } catch (_) {
-      // If client cannot update place directly, the aggregate calculated from query is still returned
-    }
-
+    // Trusted Cloud Function persists the aggregate; the dialog uses this
+    // freshly calculated value immediately while the place list updates asynchronously.
     return RatingCalculationResult(
       average: roundedAverage,
       count: count,

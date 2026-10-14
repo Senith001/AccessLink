@@ -25,6 +25,8 @@ class VerificationRecord {
 
   String get publicAuthorityDescription {
     switch (source) {
+      case 'staff_review':
+        return 'Reviewed by authorized AccessLink staff';
       case 'site_visit':
         return 'Verified via on-site accessibility inspection';
       case 'certified_audit':
@@ -45,9 +47,9 @@ class VerificationRecord {
       placeId: data['placeId'] as String? ?? '',
       feature: data['feature'] as String? ?? 'place',
       verifiedBy: data['verifiedBy'] as String? ?? '',
-      verifierName: data['verifierName'] as String? ?? 'Accessibility Auditor',
-      status: data['status'] as String? ?? 'verified',
-      source: data['source'] as String? ?? 'site_visit',
+      verifierName: data['verifierName'] as String? ?? 'Verifier not specified',
+      status: data['status'] as String? ?? 'unverified',
+      source: data['source'] as String? ?? 'unknown',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
     );
   }

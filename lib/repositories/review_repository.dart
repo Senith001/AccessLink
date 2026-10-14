@@ -19,39 +19,10 @@ class ReviewRepository {
     String placeId, {
     int limit = 50,
   }) async {
-    try {
-      final querySnapshot = await _firestore
-          .collection(FirestoreCollections.reviews)
-          .where('placeId', isEqualTo: placeId)
-          .orderBy('createdAt', descending: true)
-          .limit(limit)
-          .get();
-
-      return querySnapshot.docs.map((doc) => Review.fromQueryDoc(doc)).toList();
-    } catch (e) {
-      // In case compound index isn't built yet, fallback to fetching by placeId and sorting locally
-      try {
-        final querySnapshot = await _firestore
-            .collection(FirestoreCollections.reviews)
-            .where('placeId', isEqualTo: placeId)
-            .limit(limit)
-            .get();
-
-        final list = querySnapshot.docs
-            .map((doc) => Review.fromQueryDoc(doc))
-            .toList();
-
-        list.sort((a, b) {
-          final aTime = a.createdAt ?? DateTime(2000);
-          final bTime = b.createdAt ?? DateTime(2000);
-          return bTime.compareTo(aTime);
-        });
-
-        return list;
-      } catch (_) {
-        return [];
-      }
-    }
+    final snapshot = await _firestore.collection(FirestoreCollections.reviews)
+        .where('placeId', isEqualTo: placeId)
+        .orderBy('createdAt', descending: true).limit(limit).get();
+    return snapshot.docs.map(Review.fromQueryDoc).where((r) => r.text.trim().isNotEmpty).toList();
   }
 
   Future<Review?> getUserReviewForPlace(String placeId) {

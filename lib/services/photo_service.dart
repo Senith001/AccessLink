@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:image_picker/image_picker.dart';
 
 import '../core/database/firestore_collections.dart';
@@ -111,7 +113,7 @@ class PhotoService {
     return const PhotoValidationResult(
       isValid: false,
       errorMessage:
-          'Unsupported image format. Please select a valid JPEG or PNG file.',
+          'Unsupported image format. Please select a valid JPEG, PNG or WebP file.',
     );
   }
 
@@ -150,10 +152,20 @@ class PhotoService {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final photoId = 'photo_${placeId}_${user.uid}_$timestamp';
     final ext = validation.extension ?? 'jpg';
-    final storagePath = 'places/$placeId/photos/$photoId.$ext';
+    final storagePath = 'places/$placeId/${user.uid}/$photoId.$ext';
+    final placeRef = _firestore.collection(FirestoreCollections.places).doc(placeId);
+    if (!(await placeRef.get()).exists) throw StateError('This place no longer exists.');
+    if (caption.trim().length > 500) throw ArgumentError('Caption cannot exceed 500 characters.');
+
+    // Verify ownership path matches current user UID according to storage rules
+    if (!storagePath.startsWith('places/$placeId/${user.uid}/')) {
+      throw StateError(
+        'Upload path "$storagePath" violates ownership requirement for user "${user.uid}".',
+      );
+    }
 
     // 1. Upload to Firebase Storage
-    Reference storageRef = _storage.ref().child(storagePath);
+    final Reference storageRef = _storage.ref().child(storagePath);
     final metadata = SettableMetadata(
       contentType: validation.mimeType ?? 'image/jpeg',
       customMetadata: {
@@ -163,12 +175,13 @@ class PhotoService {
       },
     );
 
-    String downloadUrl;
+    TaskSnapshot uploadSnapshot;
+    StreamSubscription<TaskSnapshot>? progressSubscription;
     try {
       final uploadTask = storageRef.putData(bytes, metadata);
 
       if (onProgress != null) {
-        uploadTask.snapshotEvents.listen((snapshot) {
+        progressSubscription = uploadTask.snapshotEvents.listen((snapshot) {
           if (snapshot.totalBytes > 0) {
             final progress = snapshot.bytesTransferred / snapshot.totalBytes;
             onProgress(progress);
@@ -176,10 +189,71 @@ class PhotoService {
         });
       }
 
-      final snapshot = await uploadTask;
-      downloadUrl = await snapshot.ref.getDownloadURL();
+      uploadSnapshot = await uploadTask;
+      if (uploadSnapshot.state != TaskState.success) {
+        throw StateError(
+          'Storage upload task did not reach success state (current: ${uploadSnapshot.state}).',
+        );
+      }
+    } on FirebaseException catch (e) {
+      debugPrint(
+        'FirebaseStorage error during putData: '
+        'code=${e.code}, '
+        'operation=putData, '
+        'bucket=${storageRef.bucket}, '
+        'path=${storageRef.fullPath}',
+      );
+      throw StateError(
+        'Storage upload failed during putData [${e.code}]: ${e.message ?? 'Unknown storage error'}. '
+        'Bucket: ${storageRef.bucket}, Path: ${storageRef.fullPath}',
+      );
     } catch (e) {
+      debugPrint(
+        'Non-Firebase error during putData: '
+        'operation=putData, '
+        'bucket=${storageRef.bucket}, '
+        'path=${storageRef.fullPath}, '
+        'error=$e',
+      );
       throw StateError('Storage upload failed: $e');
+    } finally {
+      await progressSubscription?.cancel();
+    }
+
+    // Confirm upload and download use the exact same bucket and object reference
+    final downloadRef = uploadSnapshot.ref;
+    if (downloadRef.bucket != storageRef.bucket ||
+        downloadRef.fullPath != storageRef.fullPath) {
+      throw StateError(
+        'Upload reference mismatch: upload bucket "${storageRef.bucket}" vs download bucket "${downloadRef.bucket}", '
+        'upload path "${storageRef.fullPath}" vs download path "${downloadRef.fullPath}".',
+      );
+    }
+
+    String downloadUrl;
+    try {
+      downloadUrl = await downloadRef.getDownloadURL();
+    } on FirebaseException catch (e) {
+      debugPrint(
+        'FirebaseStorage error during getDownloadURL: '
+        'code=${e.code}, '
+        'operation=getDownloadURL, '
+        'bucket=${downloadRef.bucket}, '
+        'path=${downloadRef.fullPath}',
+      );
+      throw StateError(
+        'Storage failed during getDownloadURL [${e.code}]: ${e.message ?? 'Unknown error'}. '
+        'Bucket: ${downloadRef.bucket}, Path: ${downloadRef.fullPath}',
+      );
+    } catch (e) {
+      debugPrint(
+        'Non-Firebase error during getDownloadURL: '
+        'operation=getDownloadURL, '
+        'bucket=${downloadRef.bucket}, '
+        'path=${downloadRef.fullPath}, '
+        'error=$e',
+      );
+      throw StateError('Failed to retrieve download URL: $e');
     }
 
     // Resolve uploader name
@@ -208,52 +282,30 @@ class PhotoService {
 
     // 2. Save metadata to Firestore and link to Place
     try {
-      await _firestore
-          .collection(FirestoreCollections.photos)
-          .doc(photoId)
-          .set(placePhoto.toMap());
-
-      await _firestore
-          .collection(FirestoreCollections.places)
-          .doc(placeId)
-          .update({
-            'photos': FieldValue.arrayUnion([downloadUrl]),
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
+      await _firestore.runTransaction((tx) async {
+        final place = await tx.get(placeRef);
+        if (!place.exists) throw StateError('This place no longer exists.');
+        tx.set(_firestore.collection(FirestoreCollections.photos).doc(photoId), {
+          ...placePhoto.toMap(), 'createdAt': FieldValue.serverTimestamp(),
+        });
+        tx.update(placeRef, {
+          'photos': FieldValue.arrayUnion([downloadUrl]),
+          'communityLastPhotoId': photoId,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      });
     } catch (e) {
-      // Rollback to avoid orphaned files in storage
-      try {
-        await storageRef.delete();
-      } catch (_) {}
-      throw StateError('Failed to record photo metadata: $e');
+      throw StateError('Photo uploaded but linking could not be confirmed. Refresh the gallery before retrying. $e');
     }
 
     return placePhoto;
   }
 
-  /// Get all photo records for a place
   Future<List<PlacePhoto>> getPhotosForPlace(String placeId) async {
-    try {
-      final snapshot = await _firestore
-          .collection(FirestoreCollections.photos)
-          .where('placeId', isEqualTo: placeId)
-          .orderBy('createdAt', descending: true)
-          .get();
-
-      return snapshot.docs.map((doc) => PlacePhoto.fromFirestore(doc)).toList();
-    } catch (_) {
-      try {
-        final snapshot = await _firestore
-            .collection(FirestoreCollections.photos)
-            .where('placeId', isEqualTo: placeId)
-            .get();
-
-        return snapshot.docs
-            .map((doc) => PlacePhoto.fromFirestore(doc))
-            .toList();
-      } catch (_) {
-        return [];
-      }
-    }
+    final snapshot = await _firestore.collection(FirestoreCollections.photos)
+        .where('placeId', isEqualTo: placeId).get();
+    final photos = snapshot.docs.map(PlacePhoto.fromFirestore).toList();
+    photos.sort((a, b) => (b.createdAt ?? DateTime(2000)).compareTo(a.createdAt ?? DateTime(2000)));
+    return photos;
   }
 }

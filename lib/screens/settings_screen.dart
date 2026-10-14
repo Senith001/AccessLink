@@ -6,6 +6,7 @@ import '../accessibility/accessibility_settings.dart';
 import '../accessibility/voice_guidance.dart';
 import '../core/database/firestore_collections.dart';
 import 'admin_reports_screen.dart';
+import 'my_reports_screen.dart';
 import 'login_screen.dart';
 import 'logout_screen.dart';
 
@@ -200,6 +201,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       const SizedBox(height: 16),
                       // Admin Moderation Portal tile
+                      ListTile(
+                        leading: const Icon(Icons.flag_outlined),
+                        title: const Text('My Reports'),
+                        subtitle: const Text('Track your accessibility reports'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyReportsScreen())),
+                      ),
                       if (isStaff) ...[
                         ListTile(
                           contentPadding: EdgeInsets.zero,

@@ -76,6 +76,7 @@ class _AdminEditPlaceScreenState extends State<AdminEditPlaceScreen> {
     });
 
     try {
+      if (!await _reportService.isUserStaff()) throw StateError('Staff access is required.');
       final place = await _placeRepository.getPlaceDetail(widget.placeId);
       if (place == null) {
         setState(() {
@@ -120,6 +121,7 @@ class _AdminEditPlaceScreenState extends State<AdminEditPlaceScreen> {
     setState(() => _isSaving = true);
 
     try {
+      if (!await _reportService.isUserStaff()) throw StateError('Staff access is required.');
       // Recompute accessibility map and accessibility score
       final accessibilityMap = <String, dynamic>{};
       int availableCount = 0;
@@ -138,7 +140,7 @@ class _AdminEditPlaceScreenState extends State<AdminEditPlaceScreen> {
             originalFeat.notes != notes;
 
         bool isVerified = _verifiedMap[key] ?? false;
-        if (changed && !isVerified) {
+        if (changed) {
           // Explicitly invalidated
           isVerified = false;
         }
@@ -180,22 +182,14 @@ class _AdminEditPlaceScreenState extends State<AdminEditPlaceScreen> {
               : 'Resolved with accessibility information update.',
         );
       } else {
-        await FirebaseFirestore.instance
-            .collection('places')
-            .doc(widget.placeId)
-            .update({
-              ...updatedFields,
-              'updatedAt': FieldValue.serverTimestamp(),
-            });
+        await _reportService.updatePlaceInformation(placeId: widget.placeId, updatedPlaceFields: updatedFields);
       }
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Place accessibility information updated and report resolved!',
-          ),
+          content: Text('Place information saved.'),
           backgroundColor: Colors.green,
         ),
       );
@@ -279,7 +273,7 @@ class _AdminEditPlaceScreenState extends State<AdminEditPlaceScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Toggle availability and verification status. If details are modified, uncheck verification unless officially verified.',
+                    'Changed details lose previous verification. Verify unchanged details only after checking evidence.',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurface.withValues(alpha: 0.7),
                     ),

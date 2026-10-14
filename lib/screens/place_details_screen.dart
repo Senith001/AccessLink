@@ -113,9 +113,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
       setState(() {
         _recentReviews = reviews;
         _userReview = userRev;
-        if (verRecords.isNotEmpty) {
-          _verificationRecord = verRecords.first;
-        }
+        _verificationRecord = verRecords.isEmpty ? null : verRecords.first;
       });
     } catch (_) {}
   }
@@ -252,15 +250,15 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
       margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _place!.isVerified
+        color: (_verificationRecord != null)
             ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.08)
             : Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: _place!.isVerified
+          color: (_verificationRecord != null)
               ? Theme.of(context).colorScheme.primary
               : Theme.of(context).colorScheme.outline,
-          width: _place!.isVerified ? 1.5 : 1,
+          width: (_verificationRecord != null) ? 1.5 : 1,
         ),
       ),
       child: Column(
@@ -269,7 +267,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
           Row(
             children: [
               VerifiedBadge(
-                isVerified: _place!.isVerified,
+                isVerified: (_verificationRecord != null),
                 showFullLabel: true,
                 verifiedDate:
                     _verificationRecord?.createdAt ?? _place!.lastUpdated,
@@ -289,7 +287,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
           ),
           const SizedBox(height: 10),
           Text(
-            _place!.isVerified
+            (_verificationRecord != null)
                 ? '$verifiedCount of ${PlaceDetail.featureOrder.length} accessibility features audited and verified.'
                 : 'Accessibility information is submitted by the community and has not yet undergone official staff audit.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(

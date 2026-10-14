@@ -1,9 +1,9 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../core/database/firestore_collections.dart';
 import '../models/accessibility_report.dart';
-import '../models/place_detail.dart';
 
 class ReportModerationService {
   final FirebaseFirestore _firestore;
@@ -14,6 +14,33 @@ class ReportModerationService {
       _auth = auth ?? FirebaseAuth.instance;
 
   User? get currentUser => _auth.currentUser;
+
+  Future<User> _requireStaff() async {
+    final user = currentUser;
+    if (user == null || !await isUserStaff()) {
+      throw StateError('Administrator or moderator access is required.');
+    }
+    return user;
+  }
+
+  static const reportCategories = {
+    'incorrect_accessibility', 'outdated_info', 'inappropriate_content', 'other',
+  };
+  static const reportTargets = {
+    'Wheelchair Accessible', 'Accessible Toilet', 'Elevator',
+    'Accessible Parking', 'Tactile Paving', 'Audio Support', 'Hearing Support',
+    'Opening Hours', 'Contact Information', 'General Information',
+  };
+
+  Stream<List<AccessibilityReport>> watchMyReports() {
+    final user = currentUser;
+    if (user == null) throw StateError('Please sign in.');
+    return _firestore.collection(FirestoreCollections.reports)
+      .where('reportedBy', isEqualTo: user.uid)
+      .orderBy('createdAt', descending: true).snapshots()
+      .map((s) => s.docs.map(AccessibilityReport.fromFirestore).toList());
+  }
+
 
   /// Check if the currently signed-in user has staff (admin/moderator) role
   Future<bool> isUserStaff() async {
@@ -46,6 +73,9 @@ class ReportModerationService {
       throw StateError('You must be signed in to submit a report.');
     }
 
+    if (!reportCategories.contains(category) || !reportTargets.contains(targetField)) {
+      throw ArgumentError('Choose a valid report category and field.');
+    }
     final trimmedReason = description.trim();
     if (trimmedReason.isEmpty) {
       throw ArgumentError('Please provide a reason for this report.');
@@ -62,22 +92,6 @@ class ReportModerationService {
         .get();
     if (!placeDoc.exists) {
       throw StateError('The reported place no longer exists.');
-    }
-
-    // Prevent duplicate pending reports from the same user for the same place & field
-    final duplicateQuery = await _firestore
-        .collection(FirestoreCollections.reports)
-        .where('placeId', isEqualTo: placeId)
-        .where('reportedBy', isEqualTo: user.uid)
-        .where('status', isEqualTo: 'pending')
-        .where('targetField', isEqualTo: targetField)
-        .limit(1)
-        .get();
-
-    if (duplicateQuery.docs.isNotEmpty) {
-      throw StateError(
-        'You already have a pending report for this item. Our team is reviewing it.',
-      );
     }
 
     // Resolve reporter name
@@ -111,16 +125,26 @@ class ReportModerationService {
       createdAt: DateTime.now(),
     );
 
-    await reportRef.set({
-      'placeId': report.placeId,
-      'placeName': report.placeName,
-      'reportedBy': report.reportedBy,
-      'reporterName': report.reporterName,
-      'category': report.category,
-      'targetField': report.targetField,
-      'description': report.description,
-      'status': 'pending',
-      'createdAt': FieldValue.serverTimestamp(),
+    final lockId = Uri.encodeComponent('${placeId}_$targetField');
+    final lockRef = _firestore.collection(FirestoreCollections.users).doc(user.uid)
+        .collection('reportLocks').doc(lockId);
+    await _firestore.runTransaction((tx) async {
+      final place = await tx.get(_firestore.collection(FirestoreCollections.places).doc(placeId));
+      final lock = await tx.get(lockRef);
+      if (!place.exists) throw StateError('This place no longer exists.');
+      final oldId = lock.data()?['reportId'] as String?;
+      if (oldId != null) {
+        final old = await tx.get(_firestore.collection(FirestoreCollections.reports).doc(oldId));
+        if (old.exists && ['pending', 'approved'].contains(old.data()?['status'])) {
+          throw StateError('You already have an open report for this item.');
+        }
+      }
+      tx.set(reportRef, {
+        ...report.toMap(),
+        'lockId': lockId,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      tx.set(lockRef, {'reportId': reportRef.id, 'placeId': placeId, 'targetField': targetField});
     });
 
     return report;
@@ -128,6 +152,7 @@ class ReportModerationService {
 
   /// Get reports for administrator (or filtered by status)
   Future<List<AccessibilityReport>> getReports({String? statusFilter}) async {
+    await _requireStaff();
     Query<Map<String, dynamic>> query = _firestore.collection(
       FirestoreCollections.reports,
     );
@@ -141,7 +166,8 @@ class ReportModerationService {
     try {
       final snapshot = await query.orderBy('createdAt', descending: true).get();
       return snapshot.docs.map(AccessibilityReport.fromFirestore).toList();
-    } catch (_) {
+    } on FirebaseException catch (e) {
+      if (e.code != 'failed-precondition') rethrow;
       // Fallback query if composite index is pending
       final snapshot = await query.get();
       final list = snapshot.docs
@@ -156,156 +182,143 @@ class ReportModerationService {
     }
   }
 
-  /// Approve a report (records moderation note)
-  Future<void> approveReport({
-    required String reportId,
-    required String adminNotes,
-  }) async {
-    final user = _auth.currentUser;
-    if (user == null) {
-      throw StateError('You must be signed in as administrator.');
-    }
+  Future<void> approveReport({required String reportId, required String adminNotes}) =>
+      _moderate(reportId, 'approved', adminNotes);
 
-    final reportRef = _firestore
-        .collection(FirestoreCollections.reports)
-        .doc(reportId);
-    final reportSnapshot = await reportRef.get();
-    if (!reportSnapshot.exists) {
-      throw StateError('Report could not be found.');
-    }
+  Future<void> rejectReport({required String reportId, required String adminNotes}) =>
+      _moderate(reportId, 'rejected', adminNotes);
 
-    final currentStatus = reportSnapshot.data()?['status'] as String?;
-    if (currentStatus != 'pending') {
-      throw StateError(
-        'This report has already been reviewed (current status: $currentStatus).',
-      );
+  Future<void> _moderate(String reportId, String status, String note) async {
+    final user = await _requireStaff();
+    if (note.trim().isEmpty || note.trim().length > 2000) {
+      throw ArgumentError('Enter a moderation note of 1–2,000 characters.');
     }
-
-    String adminName = user.displayName ?? user.email ?? 'Staff Reviewer';
-    try {
-      final userDoc = await _firestore
-          .collection(FirestoreCollections.users)
-          .doc(user.uid)
-          .get();
-      if (userDoc.exists && userDoc.data()?['name'] != null) {
-        adminName = userDoc.data()!['name'];
+    final ref = _firestore.collection(FirestoreCollections.reports).doc(reportId);
+    await _firestore.runTransaction((tx) async {
+      final doc = await tx.get(ref);
+      if (!doc.exists || doc.data()?['status'] != 'pending') {
+        throw StateError('This report is missing or has already been reviewed. Refresh the list.');
       }
-    } catch (_) {}
-
-    await reportRef.update({
-      'status': 'approved',
-      'adminNotes': adminNotes.trim(),
-      'reviewedBy': user.uid,
-      'reviewedByName': adminName,
-      'reviewedAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
+      tx.update(ref, _moderationFields(user, status, note));
     });
   }
 
-  /// Reject a report (records moderation note)
-  Future<void> rejectReport({
-    required String reportId,
-    required String adminNotes,
-  }) async {
-    final user = _auth.currentUser;
-    if (user == null) {
-      throw StateError('You must be signed in as administrator.');
-    }
+  Map<String, dynamic> _moderationFields(User user, String status, String note) => {
+    'status': status,
+    'adminNotes': note.trim(),
+    'reviewedBy': user.uid,
+    'reviewedByName': user.displayName ?? user.email ?? 'Staff Reviewer',
+    'reviewedAt': FieldValue.serverTimestamp(),
+    'updatedAt': FieldValue.serverTimestamp(),
+  };
 
-    final reportRef = _firestore
-        .collection(FirestoreCollections.reports)
-        .doc(reportId);
-    final reportSnapshot = await reportRef.get();
-    if (!reportSnapshot.exists) {
-      throw StateError('Report could not be found.');
-    }
-
-    final currentStatus = reportSnapshot.data()?['status'] as String?;
-    if (currentStatus != 'pending') {
-      throw StateError(
-        'This report has already been reviewed (current status: $currentStatus).',
-      );
-    }
-
-    String adminName = user.displayName ?? user.email ?? 'Staff Reviewer';
-    try {
-      final userDoc = await _firestore
-          .collection(FirestoreCollections.users)
-          .doc(user.uid)
-          .get();
-      if (userDoc.exists && userDoc.data()?['name'] != null) {
-        adminName = userDoc.data()!['name'];
-      }
-    } catch (_) {}
-
-    await reportRef.update({
-      'status': 'rejected',
-      'adminNotes': adminNotes.trim(),
-      'reviewedBy': user.uid,
-      'reviewedByName': adminName,
-      'reviewedAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-  }
-
-  /// Resolve report with updated place information
   Future<void> resolveReportWithPlaceUpdate({
     required String reportId,
     required String placeId,
     required Map<String, dynamic> updatedPlaceFields,
     required String adminNotes,
   }) async {
-    final user = _auth.currentUser;
-    if (user == null) {
-      throw StateError('You must be signed in as administrator.');
+    final user = await _requireStaff();
+    if (adminNotes.trim().isEmpty || adminNotes.trim().length > 2000) {
+      throw ArgumentError('Enter a resolution note of 1–2,000 characters.');
     }
-
-    final reportRef = _firestore
-        .collection(FirestoreCollections.reports)
-        .doc(reportId);
-    final reportSnapshot = await reportRef.get();
-    if (!reportSnapshot.exists) {
-      throw StateError('Report could not be found.');
-    }
-
-    final currentStatus = reportSnapshot.data()?['status'] as String?;
-    if (currentStatus == 'resolved') {
-      throw StateError('This report is already resolved.');
-    }
-
-    String adminName = user.displayName ?? user.email ?? 'Staff Reviewer';
-    try {
-      final userDoc = await _firestore
-          .collection(FirestoreCollections.users)
-          .doc(user.uid)
-          .get();
-      if (userDoc.exists && userDoc.data()?['name'] != null) {
-        adminName = userDoc.data()!['name'];
+    validatePlaceUpdate(updatedPlaceFields);
+    final reportRef = _firestore.collection(FirestoreCollections.reports).doc(reportId);
+    final placeRef = _firestore.collection(FirestoreCollections.places).doc(placeId);
+    await _firestore.runTransaction((tx) async {
+      final report = await tx.get(reportRef);
+      final place = await tx.get(placeRef);
+      if (!report.exists || !place.exists) throw StateError('Report or place no longer exists.');
+      if (report.data()?['placeId'] != placeId) throw StateError('This report belongs to a different place.');
+      if (!['pending', 'approved'].contains(report.data()?['status'])) {
+        throw StateError('Only pending or approved reports can be resolved.');
       }
-    } catch (_) {}
-
-    // Update place in firestore
-    final placeRef = _firestore
-        .collection(FirestoreCollections.places)
-        .doc(placeId);
-    final placeDoc = await placeRef.get();
-    if (!placeDoc.exists) {
-      throw StateError('Target place was not found.');
-    }
-
-    final fieldsToUpdate = Map<String, dynamic>.from(updatedPlaceFields);
-    fieldsToUpdate['updatedAt'] = FieldValue.serverTimestamp();
-
-    await placeRef.update(fieldsToUpdate);
-
-    // Mark report resolved
-    await reportRef.update({
-      'status': 'resolved',
-      'adminNotes': adminNotes.trim(),
-      'reviewedBy': user.uid,
-      'reviewedByName': adminName,
-      'reviewedAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
+      final previous = <String, dynamic>{};
+      for (final key in updatedPlaceFields.keys) { previous[key] = place.data()?[key]; }
+      _writePlaceAndVerification(tx, placeRef, place.data()!, updatedPlaceFields, user);
+      tx.update(reportRef, {
+        ..._moderationFields(user, 'resolved', adminNotes),
+        'previousPlaceValues': previous,
+        'updatedPlaceValues': updatedPlaceFields,
+      });
     });
+  }
+
+  Future<void> updatePlaceInformation({required String placeId, required Map<String, dynamic> updatedPlaceFields}) async {
+    final user = await _requireStaff();
+    validatePlaceUpdate(updatedPlaceFields);
+    final ref = _firestore.collection(FirestoreCollections.places).doc(placeId);
+    await _firestore.runTransaction((tx) async {
+      final place = await tx.get(ref);
+      if (!place.exists) throw StateError('Place no longer exists.');
+      _writePlaceAndVerification(tx, ref, place.data()!, updatedPlaceFields, user);
+    });
+  }
+
+  void _writePlaceAndVerification(Transaction tx,
+      DocumentReference<Map<String, dynamic>> ref,
+      Map<String, dynamic> before, Map<String, dynamic> fields, User user) {
+    final update = Map<String, dynamic>.from(fields);
+    final features = update['accessibility'];
+    if (features is Map) {
+      final normalized = <String, dynamic>{};
+      final previous = before['accessibility'];
+      bool anyVerified = false;
+      for (final entry in features.entries) {
+        final key = entry.key.toString();
+        final value = Map<String, dynamic>.from(entry.value as Map);
+        final old = previous is Map ? previous[key] : null;
+        final changed = old is! Map || old['available'] != value['available'] || old['notes'] != value['notes'];
+        final verified = !changed && value['verified'] == true;
+        value['verified'] = verified;
+        value['lastUpdated'] = FieldValue.serverTimestamp();
+        normalized[key] = value;
+        anyVerified = anyVerified || verified;
+        tx.set(_firestore.collection(FirestoreCollections.verificationRecords)
+            .doc('${ref.id}_$key'), {
+          'placeId': ref.id, 'feature': key,
+          'verifiedBy': user.uid,
+          'verifierName': user.displayName ?? user.email ?? 'AccessLink staff',
+          'status': verified ? 'verified' : 'unverified',
+          'source': 'staff_review',
+          'available': value['available'], 'notes': value['notes'],
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+      update['accessibility'] = normalized;
+      update['isVerified'] = anyVerified;
+    }
+    tx.update(ref, {...update, 'updatedAt': FieldValue.serverTimestamp()});
+  }
+
+  static void validatePlaceUpdate(Map<String, dynamic> fields) {
+    const allowed = {
+      'accessibility', 'accessibilityScore', 'isVerified',
+      'hasWheelchairAccess', 'hasAccessibleToilet', 'hasElevator',
+      'hasAccessibleParking', 'hasTactilePaving', 'hasAudioSupport', 'hasHearingSupport',
+      'openingHours', 'contact', 'description',
+    };
+    if (fields.isEmpty || fields.keys.any((k) => !allowed.contains(k))) {
+      throw ArgumentError('Unsupported place update fields.');
+    }
+    if (fields.containsKey('accessibilityScore')) {
+      final score = fields['accessibilityScore'];
+      if (score is! int || score < 0 || score > 100) throw ArgumentError('Invalid accessibility score.');
+    }
+    for (final key in allowed.where((k) => k.startsWith('has') || k == 'isVerified')) {
+      if (fields.containsKey(key) && fields[key] is! bool) throw ArgumentError('Invalid $key value.');
+    }
+    if (fields.containsKey('accessibility')) {
+      final features = fields['accessibility'];
+      if (features is! Map) throw ArgumentError('Accessibility must be a feature map.');
+      const keys = {'wheelchairAccessible','accessibleToilet','elevator','accessibleParking','tactilePaving','audioSupport','hearingSupport'};
+      if (features.keys.any((k) => !keys.contains(k))) throw ArgumentError('Unsupported accessibility feature.');
+      for (final value in features.values) {
+        if (value is! Map || value['available'] is! bool || value['verified'] is! bool ||
+            value['notes'] is! String || (value['notes'] as String).length > 2000) {
+          throw ArgumentError('Invalid accessibility feature value.');
+        }
+      }
+    }
   }
 }

@@ -33,7 +33,7 @@ void main() async {
   }
 
   // TEMPORARY DEV BYPASS: launch a screen directly via --dart-define=DEV_SCREEN=home. Remove before release. Default (no flag) keeps the normal auth/login flow.
-  Widget? devBypassHome;
+  Widget? devBypassHome = const BottomNavigationScreen();
   if (devScreen == 'home') {
     devBypassHome = const BottomNavigationScreen();
   } else if (devScreen == 'home-tab') {
