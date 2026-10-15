@@ -83,3 +83,4 @@ signer/.dev.vars
 .dev.vars
 signer/dist/
 signer/.wrangler/
+FireBaseX/
